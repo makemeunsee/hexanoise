@@ -57,9 +57,6 @@ function appMain() {
     $("#screenshot").unbind("click");
     $("#screenshot").click(screenshot);
 
-    $("#nextflake").unbind("click");
-    $("#nextflake").click(function() { scramblMain.next(); });
-
     var toggleFullscreen = THREEx.FullScreen.toggleFct();
     $("#fullscreen").unbind("click");
     $("#fullscreen").click(toggleFullscreen);
@@ -182,19 +179,6 @@ function appMain() {
     THREEx.WindowResize(renderer, updateProjection);
     THREEx.FullScreen.bindKey({ charCode : 'f'.charCodeAt(0) });
 
-    // A cross-browser requestAnimationFrame
-    // See https://hacks.mozilla.org/2011/08/animating-with-javascript-from-setinterval-to-requestanimationframe/
-    var requestAnimFrame = (function() {
-        return window.requestAnimationFrame    ||
-            window.webkitRequestAnimationFrame ||
-            window.mozRequestAnimationFrame    ||
-            window.oRequestAnimationFrame      ||
-            window.msRequestAnimationFrame     ||
-            function(callback){
-                window.setTimeout(callback, 1000 / 60);
-            };
-    })();
-
     // Don't run the game when the tab isn't visible
     window.addEventListener('focus', function() {
         unpause();
@@ -231,10 +215,8 @@ function appMain() {
 
     document.body.appendChild( stats.domElement );
 
-    scramblMain.loadModel(toggleUI, requestAnimFrame, main);
-
     // The main game loop
-    function main() {
+    var main = function() {
         if(!running) {
             return;
         }
@@ -256,10 +238,12 @@ function appMain() {
 
         stats.end();
 
-        requestAnimFrame(main);
-    }
+        requestAnimationFrame(main);
+    };
 
-
+    scramblMain.loadModel();
+    toggleUI(true);
+    main();
 };
 
 window.onload = appMain;

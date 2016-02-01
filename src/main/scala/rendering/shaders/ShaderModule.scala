@@ -14,11 +14,6 @@ import scala.scalajs.js.typedarray.{Uint32Array, Float32Array}
 sealed trait BorderMode
 case class Border(color: Color, thickness: Float = 0.8f) extends BorderMode
 
-sealed trait SproutMode
-case object Shrinking extends SproutMode
-case object Fading extends SproutMode
-case class  Wither(shift: Float = 1f) extends SproutMode
-
 sealed trait HighlightMode
 case class Pulsating(rate: Float = 1, amplitude: Float = 0.25f, shift: Float = 0f) extends HighlightMode
 case class Blending(rate: Float = 1, amplitude: Float = 0.25f, shift: Float = 0f) extends HighlightMode
@@ -27,76 +22,47 @@ case class PulsatingShaking(rateS: Float = 10, amplitudeS: (Float, Float) = (2f,
                             rateP: Float = 1, amplitudeP: Float = 0.25f, shiftP: Float = 0f) extends HighlightMode
 case class Squeezing(restDuration: Float = 4.5f, squeezeDuration: Float = 0.1f, amplitude: Float = 0.2f) extends HighlightMode
 case class ColorCycling(period: Float) extends HighlightMode
-case class SimplexNoise(xScale: Float = 1, yScale: Float = 1, rate: Float = 1, amplitude: Float = 0.25f, shift: Float = 0f) extends HighlightMode
+case class SimplexNoise2D(xScale: Float = 1, yScale: Float = 1, rate: Float = 1, amplitude: Float = 0.25f, shift: Float = 0f) extends HighlightMode
+case class SimplexNoise3D(xScale: Float = 1, yScale: Float = 1, rate: Float = 1, amplitude: Float = 0.25f, shift: Float = 0f) extends HighlightMode
 case object Dead extends HighlightMode
 
 sealed trait ColorShadingMode
-case object Bicolor extends ColorShadingMode
 case class Color3D(rate: Float = 1) extends ColorShadingMode
 
-case object NoFX extends HighlightMode with BorderMode with SproutMode with ColorShadingMode
+case object NoFX extends HighlightMode with BorderMode with ColorShadingMode
+
+object ShaderModule {
+  val shortToType: Map[String, String] = Map(
+    "v4" -> "vec4",
+    "v3" -> "vec3",
+    "v2" -> "vec2",
+    "m4" -> "mat4",
+    "m3" -> "mat3",
+    "m2" -> "mat2",
+    "f" -> "float")
+}
+
+import ShaderModule.shortToType
 
 trait ShaderModule[H <: Hexagon] extends Shader with MeshMaker[H] {
-  
-  def color0: DynamicColor
-  def color1: DynamicColor
 
-  def birthFunction: ( H, Int ) => Float
-  def deathFunction: ( H, Int ) => Float
+  def name: String
+
+  def commonUniforms = Map("u_time" -> "1f")
+
+  def uniforms: Map[String, String]
   
   // TODO: split shader and mesh creation?
-  def makeMesh( hexas: Seq[_ <: H],
-    birthOffset: Float = 0,
-    limit: Option[Int] = None ): Mesh = {
+  def makeMesh( hexas: Seq[_ <: H] ): Mesh = {
 
-    val aliveLimit = limit.getOrElse( hexas.length )
-
-    val customUniforms = js.Dynamic.literal(
-      "u_time" -> js.Dynamic.literal(
-        "type" -> "1f",
-        "value" -> new js.Array[Float]
-      ),
-      "u_color0" -> js.Dynamic.literal(
-        "type" -> "v4",
-        "value" -> new js.Array[Float]
-      ),
-      "u_noise0" -> js.Dynamic.literal(
-        "type" -> "v3",
-        "value" -> new js.Array[Float]
-      ),
-      "u_shading0" -> js.Dynamic.literal(
-        "type" -> "v3",
-        "value" -> new js.Array[Float]
-      ),
-      "u_offsets0" -> js.Dynamic.literal(
-        "type" -> "v2",
-        "value" -> new js.Array[Float]
-      ),
-      "u_scaling0" -> js.Dynamic.literal(
-        "type" -> "v2",
-        "value" -> new js.Array[Float]
-      ),
-      "u_color1" -> js.Dynamic.literal(
-        "type" -> "v4",
-        "value" -> new js.Array[Float]
-      ),
-      "u_noise1" -> js.Dynamic.literal(
-        "type" -> "v3",
-        "value" -> new js.Array[Float]
-      ),
-      "u_shading1" -> js.Dynamic.literal(
-        "type" -> "v3",
-        "value" -> new js.Array[Float]
-      ),
-      "u_offsets1" -> js.Dynamic.literal(
-        "type" -> "v2",
-        "value" -> new js.Array[Float]
-      ),
-      "u_scaling1" -> js.Dynamic.literal(
-        "type" -> "v2",
-        "value" -> new js.Array[Float]
-      )
-    )
+    val customUniforms = ( commonUniforms ++ uniforms ).foldLeft( js.Dynamic.literal() ) {
+      case (dynamic, (key, value)) =>
+        dynamic.updateDynamic( key )( js.Dynamic.literal(
+            "type" -> value,
+            "value" -> new js.Array[Float]
+          ) )
+        dynamic
+    }
 
     val geom = new MyBufferGeometry()
 
@@ -114,14 +80,6 @@ trait ShaderModule[H <: Hexagon] extends Shader with MeshMaker[H] {
         "value" -> new js.Array[Float]
       ),
       "a_tier" -> js.Dynamic.literal(
-        "type" -> "f",
-        "value" -> new js.Array[Float]
-      ),
-      "a_birthtime" -> js.Dynamic.literal(
-        "type" -> "f",
-        "value" -> new js.Array[Float]
-      ),
-      "a_deathtime" -> js.Dynamic.literal(
         "type" -> "f",
         "value" -> new js.Array[Float]
       )
@@ -145,20 +103,11 @@ trait ShaderModule[H <: Hexagon] extends Shader with MeshMaker[H] {
     val centers = new Float32Array( count * 2 )
     val centerFlags = new Float32Array( count )
     val tiers = new Float32Array( count )
-    val birthtimes = new Float32Array( count )
-    val deathtimes = new Float32Array( count )
     val indices = new Uint32Array( count * indicePerHexa )
     var offset = 0
     var indicesOffset = 0
 
     for ( ( hexa, id ) <- hexas.zipWithIndex ) {
-
-      // times
-      val ( birthTime, deathTime ) =
-        if ( id > aliveLimit )
-          ( -1000f, -1000f )
-        else
-          ( birthFunction(hexa, id) + birthOffset, deathFunction(hexa, id) )
 
       val doubleOffset = offset*2
 
@@ -174,10 +123,6 @@ trait ShaderModule[H <: Hexagon] extends Shader with MeshMaker[H] {
       tiers.set( offset, 0 )
       // is center flag
       centerFlags.set( offset, 1 )
-      // birth time
-      birthtimes.set( offset, birthTime )
-      // death time
-      deathtimes.set( offset, deathTime )
 
       val centerOffset = offset
       offset = offset + 1
@@ -197,10 +142,6 @@ trait ShaderModule[H <: Hexagon] extends Shader with MeshMaker[H] {
         tiers.set( offset, if (i==0) -1 else if (i==2) 1 else 0 )
         // is center flag
         centerFlags.set( offset, 0 )
-        // birth time
-        birthtimes.set( offset, birthTime )
-        // death time
-        deathtimes.set( offset, deathTime )
 
         indices.set( indicesOffset, centerOffset )
         indices.set( indicesOffset + 1, if ( offset == centerOffset + 6 ) centerOffset + 1 else offset +1 )
@@ -217,68 +158,11 @@ trait ShaderModule[H <: Hexagon] extends Shader with MeshMaker[H] {
     geom.addAttribute( "a_center", new BufferAttribute( centers, 2 ) )
     geom.addAttribute( "a_tier", new BufferAttribute( tiers, 1 ) )
     geom.addAttribute( "a_centerFlag", new BufferAttribute( centerFlags, 1 ) )
-    geom.addAttribute( "a_birthtime", new BufferAttribute( birthtimes, 1 ) )
-    geom.addAttribute( "a_deathtime", new BufferAttribute( deathtimes, 1 ) )
 
     assembleMesh( geom, shaderMaterial, "baseMesh" )
   }
   
-  def loadUniforms(loadUniform: (String, js.Any) => Unit ): Unit = {
-
-    loadUniform( "u_color0", new Vector4(
-      color0.baseColor.r,
-      color0.baseColor.g,
-      color0.baseColor.b,
-      color0.baseColor.a
-    ) )
-    val noise0 = color0.noiseCoeffs
-    loadUniform( "u_noise0", new Vector3(
-      noise0._1,
-      noise0._2,
-      noise0._3
-    ) )
-    val shading0 = color0.shadingCoeffs
-    loadUniform( "u_shading0", new Vector3(
-      shading0._1,
-      shading0._2,
-      shading0._3
-    ) )
-    loadUniform( "u_offsets0", new Vector2(
-      color0.offsetX,
-      color0.offsetY
-    ) )
-    loadUniform( "u_scaling0", new Vector2(
-      color0.noiseScalingX,
-      color0.noiseScalingY
-    ) )
-
-    loadUniform( "u_color1", new Vector4(
-      color1.baseColor.r,
-      color1.baseColor.g,
-      color1.baseColor.b,
-      color1.baseColor.a
-    ) )
-    val noise1 = color1.noiseCoeffs
-    loadUniform( "u_noise1", new Vector3(
-      noise1._1,
-      noise1._2,
-      noise1._3
-    ) )
-    val shading1 = color1.shadingCoeffs
-    loadUniform( "u_shading1", new Vector3(
-      shading1._1,
-      shading1._2,
-      shading1._3
-    ) )
-    loadUniform( "u_offsets1", new Vector2(
-      color1.offsetX,
-      color1.offsetY
-    ) )
-    loadUniform( "u_scaling1", new Vector2(
-      color1.noiseScalingX,
-      color1.noiseScalingY
-    ) )
-  }
+  def loadUniforms(loadUniform: (String, js.Any) => Unit ): Unit
 
   // shaders related code
 
@@ -286,26 +170,8 @@ trait ShaderModule[H <: Hexagon] extends Shader with MeshMaker[H] {
   
   def blendingRate: Float
   def border: BorderMode
-  def sprouting: SproutMode
   def highlighting: HighlightMode
-  def colorShading: ColorShadingMode
   def cubic: Boolean
-
-  private def alphaCompute =
-    s"""|  float timeLive = u_time - a_birthtime;
-        |  float timeRemaining = a_deathtime - u_time;
-        |  float alpha = 0.0;
-        |  if ( u_time > a_birthtime && u_time < a_deathtime ) {
-        |    if ( timeRemaining < $transitionTime && timeLive < $transitionTime ) {
-        |      alpha = min(timeRemaining / $transitionTime, timeLive / $transitionTime);
-        |    } else if ( timeRemaining < $transitionTime ) {
-        |      alpha = timeRemaining / $transitionTime;
-        |    } else if ( timeLive < $transitionTime ) {
-        |      alpha = timeLive / $transitionTime;
-        |    } else {
-        |      alpha = 1.0;
-        |    }
-        |  }""".stripMargin
 
   private val twoPi = 2*math.Pi
   private val twoPiBy1000 = twoPi / 1000f
@@ -315,29 +181,29 @@ trait ShaderModule[H <: Hexagon] extends Shader with MeshMaker[H] {
       s"""|  v_color = vec4(1.0, 1.0, 1.0, v_color.a + v_color.a) - v_color;
           |  position = position - 0.5 * ( position - a_center );""".stripMargin
     case Pulsating(rate, amplitude, shift) =>
-      s"""|  float hAlpha = sin((u_time - a_birthtime) * $rate * $twoPiBy1000);
+      s"""|  float hAlpha = sin(u_time * $rate * $twoPiBy1000);
           |  position = position + (hAlpha * $amplitude + $shift) * (position - a_center);""".stripMargin
     case Shaking(rate, (amplitudeX, amplitudeY)) =>
-      s"""|  float alphaShake = sin((u_time - a_birthtime) * $rate * $twoPiBy1000);
+      s"""|  float alphaShake = sin(u_time * $rate * $twoPiBy1000);
           |  vec2 amplitude = vec2($amplitudeX, $amplitudeY);
           |  position = position + alphaShake * amplitude;""".stripMargin
     case PulsatingShaking(rateS, (amplitudeX, amplitudeY), rateP, amplitudeP, shiftP) =>
-      s"""|  float alphaShake = sin((u_time - a_birthtime) * $rateS * $twoPiBy1000);
-          |  float alphaPulse = sin((u_time - a_birthtime) * $rateP * $twoPiBy1000);
+      s"""|  float alphaShake = sin(u_time * $rateS * $twoPiBy1000);
+          |  float alphaPulse = sin(u_time * $rateP * $twoPiBy1000);
           |  vec2 amplitude = vec2($amplitudeX, $amplitudeY);
           |  position = position + alphaShake * amplitude + (alphaPulse * $amplitudeP + $shiftP) * (position - a_center);""".stripMargin
     case Blending(rate, amplitude, shift) =>
-      s"""|  float hAlpha = sin((u_time - a_birthtime) * $rate * $twoPiBy1000);
+      s"""|  float hAlpha = sin(u_time * $rate * $twoPiBy1000);
           |  v_color.a = (0.5 + $shift + hAlpha * $amplitude) * v_color.a;""".stripMargin
     case Squeezing(restD, squeezeD, amplitude) =>
       val period = restD + squeezeD
-      s"""|  float life = (u_time - a_birthtime) / 1000.0;
+      s"""|  float life = u_time / 1000.0;
           |  float state = life - $period * floor(life / $period);
           |  if (state > $restD) {
           |    position = position - $amplitude * (position - a_center);
           |  }""".stripMargin
     case ColorCycling(period) =>
-      s"""float life = (u_time - a_birthtime) / 1000.0;
+      s"""float life = u_time / 1000.0;
          |float state = (life - $period * floor(life / $period)) / $period;
          |if (state < 0.0833) {
          |  v_color.x = 0.0; v_color.y = 0.0; // blue
@@ -364,59 +230,24 @@ trait ShaderModule[H <: Hexagon] extends Shader with MeshMaker[H] {
          |} else {
          |  v_color.x = 0.0; v_color.y = 0.43 * v_color.y; v_color.z = 0.9 * v_color.z; // cyan/blue
          |}""".stripMargin
-    case SimplexNoise(xScale, yScale, rate, amplitude, shift) =>
+    case SimplexNoise3D(xScale, yScale, rate, amplitude, shift) =>
       s"""|  float life = u_time / 1000.0 * $rate;
           |  float noise = snoise3D(vec3( a_center / ${LivingHexagon.scaling * 2} * vec2( $xScale, $yScale ), life ));
           |  float hAlpha = sin(noise * $twoPi);
           |  position = position + (hAlpha * $amplitude + $shift) * (position - a_center);""".stripMargin
+    case SimplexNoise2D(xScale, yScale, rate, amplitude, shift) =>
+      s"""|  float noise = snoise3D(vec3(a_center / ${LivingHexagon.scaling * 2} * vec2( $xScale, $yScale ), 0));
+          |  float hAlpha = sin(u_time * $rate * $twoPiBy1000 + noise * $twoPi);
+          |  position = position + (hAlpha * $amplitude + $shift) * (position - a_center);""".stripMargin
     case NoFX => ""
   }
 
-  private def sprout = sprouting match {
-    case Shrinking =>
-      s"""|$alphaCompute
-          |  position = a_center + alpha * (position - a_center);""".stripMargin
+  def applyColorShading: String
 
-    case Fading =>
-      s"""|$alphaCompute
-          |  v_color.a = alpha * v_color.a;""".stripMargin
-          
-    case Wither(shiftRatio) =>
-      val shift = hexagonWidth * shiftRatio * 0.5f
-      val piBy3 = 1.04719755f
-      s"""|$alphaCompute
-          |  float xShift = sin(mod(a_birthtime, 6.0) * $piBy3) * $shift;
-          |  float yShift = cos(mod(a_birthtime, 6.0) * $piBy3) * $shift;
-          |  vec2 shift = vec2( xShift, yShift );
-          |  v_color = (1.0 - alpha) * vec4(1.0 - v_color.rgb, v_color.a) + alpha * v_color;
-          |  position = position - (1.0 - alpha) * (0.3 * (position - a_center) + shift);""".stripMargin
-
-    case NoFX =>
-      ""
-  }
-
-  private def applyColorShading = colorShading match {
-    case Bicolor =>
-      """  vec4 color0;
-        |  vec4 color1;
-        |  if ( a_centerFlag == 1.0 ) {
-        |    color0 = shaded(u_color0, u_noise0, u_shading0, u_offsets0, u_scaling0);
-        |    color1 = shaded(u_color1, u_noise1, u_shading1, u_offsets1, u_scaling1);
-        |  } else {
-        |    color0 = noised(u_color0, u_noise0, u_offsets0, u_scaling0);
-        |    color1 = noised(u_color1, u_noise1, u_offsets1, u_scaling1);
-        |  }
-        |  v_color = blendAlpha * color0 + (1.0 - blendAlpha) * color1;""".stripMargin
-    case Color3D(rate) =>
-      s"""|  float colorLife = u_time / 1000.0 * $rate;
-          |  if ( a_centerFlag == 1.0 ) {
-          |    v_color = shaded3D(u_color0, u_noise0, u_shading0, u_offsets0, u_scaling0, colorLife);
-          |  } else {
-          |    v_color = noised3D(u_color0, u_noise0, u_offsets0, u_scaling0, colorLife);
-          |  }""".stripMargin
-    case NoFX =>
-      """  v_color = u_color0;"""
-  }
+  private def glslUniformsDeclaration: String = uniforms
+    .map { p => ( p._1, shortToType(p._2) ) }
+    .map { case (key, value) => s"uniform $value $key;" }
+    .mkString("\n")
 
   private def vertexShaderRaw = s"""#ifdef GL_ES
 #extension GL_OES_standard_derivatives : enable
@@ -430,61 +261,29 @@ varying float v_centerFlag;
 attribute float a_tier;
 varying float v_tier;
 
-uniform vec4 u_color0;
-uniform vec3 u_noise0;
-uniform vec3 u_shading0;
-uniform vec2 u_offsets0;
-uniform vec2 u_scaling0;
-
-uniform vec4 u_color1;
-uniform vec3 u_noise1;
-uniform vec3 u_shading1;
-uniform vec2 u_offsets1;
-uniform vec2 u_scaling1;
+$glslUniformsDeclaration
 
 varying vec4 v_color;
 
 uniform float u_time;
-attribute float a_birthtime;
-attribute float a_deathtime;
 
 ${SimplexNoiseGLSL.mod289_3D}
 
-${SimplexNoiseGLSL.noise2D}
-
 ${SimplexNoiseGLSL.noise3D}
 
-float noise2DOf(vec2 position, vec2 offsets, vec2 scaling) {
-  return snoise2D( position * scaling + offsets );
+float noise3DOf(vec2 position, vec2 scaling, float z) {
+  return snoise3D( vec3( position * scaling, z ) );
 }
 
-vec4 noised(vec4 color, vec3 noise, vec2 offsets, vec2 scaling) {
-  float n = noise2DOf( a_center / ${LivingHexagon.scaling * 2}, offsets, scaling );
+vec4 noised3D(vec4 color, vec3 noise, vec2 scaling, float z) {
+  float n = noise3DOf( a_center / ${LivingHexagon.scaling * 2}, scaling, z );
   return clamp( vec4( color.rgb * ( 1.0 + n * noise ), color.a ),
                 0.0,
                 1.0 );
 }
 
-vec4 shaded(vec4 color, vec3 noise, vec3 shading, vec2 offsets, vec2 scaling) {
-  vec4 noisedColor = noised( color, noise, offsets, scaling );
-  return clamp( vec4( noisedColor.rgb + shading, noisedColor.a ),
-                0.0,
-                1.0 );
-}
-
-float noise3DOf(vec2 position, vec2 offsets, vec2 scaling, float z) {
-  return snoise3D( vec3( position * scaling + offsets, z ) );
-}
-
-vec4 noised3D(vec4 color, vec3 noise, vec2 offsets, vec2 scaling, float z) {
-  float n = noise3DOf( a_center / ${LivingHexagon.scaling * 2}, offsets, scaling, z );
-  return clamp( vec4( color.rgb * ( 1.0 + n * noise ), color.a ),
-                0.0,
-                1.0 );
-}
-
-vec4 shaded3D(vec4 color, vec3 noise, vec3 shading, vec2 offsets, vec2 scaling, float z) {
-  vec4 noisedColor = noised3D( color, noise, offsets, scaling, z );
+vec4 shaded3D(vec4 color, vec3 noise, vec3 shading, vec2 scaling, float z) {
+  vec4 noisedColor = noised3D( color, noise, scaling, z );
   return clamp( vec4( noisedColor.rgb + shading, noisedColor.a ),
                 0.0,
                 1.0 );
@@ -499,7 +298,6 @@ void main()
 $applyColorShading
   
   vec2 position = a_position;
-$sprout
 $highlight
   gl_Position = modelViewMatrix * projectionMatrix * vec4(position, 0.0, 1.0);;
 }"""
@@ -551,4 +349,137 @@ void main()
 
   val fragmentShader = intToFloatInString(fragmentShaderRaw)
   val vertexShader = intToFloatInString(vertexShaderRaw)
+}
+
+trait MonocolorShaderModule[H <: Hexagon] extends ShaderModule[H] {
+  
+  def color: DynamicColor
+  
+  def uniforms: Map[String, String] = Map(
+    "u_color0" -> "v4",
+    "u_noise0" -> "v3",
+    "u_shading0" -> "v3",
+    "u_scaling0" -> "v2"
+    )
+
+  def loadUniforms(loadUniform: (String, js.Any) => Unit ): Unit = {
+    loadUniform( "u_color0", new Vector4(
+      color.baseColor.r,
+      color.baseColor.g,
+      color.baseColor.b,
+      color.baseColor.a
+    ) )
+    val noise0 = color.noiseCoeffs
+    loadUniform( "u_noise0", new Vector3(
+      noise0._1,
+      noise0._2,
+      noise0._3
+    ) )
+    val shading0 = color.shadingCoeffs
+    loadUniform( "u_shading0", new Vector3(
+      shading0._1,
+      shading0._2,
+      shading0._3
+    ) )
+    loadUniform( "u_scaling0", new Vector2(
+      color.noiseScalingX,
+      color.noiseScalingY
+    ) )
+  }
+
+  def colorShading: ColorShadingMode
+
+  def applyColorShading = colorShading match {
+    case Color3D(rate) =>
+      s"""|  float colorLife = u_time / 1000.0 * $rate;
+          |  if ( a_centerFlag == 1.0 ) {
+          |    v_color = shaded3D(u_color0, u_noise0, u_shading0, u_scaling0, colorLife);
+          |  } else {
+          |    v_color = noised3D(u_color0, u_noise0, u_scaling0, colorLife);
+          |  }""".stripMargin
+    case NoFX =>
+      s"""|  if ( a_centerFlag == 1.0 ) {
+          |    v_color = shaded3D(u_color0, u_noise0, u_shading0, u_scaling0, 4.44);
+          |  } else {
+          |    v_color = noised3D(u_color0, u_noise0, u_scaling0, 4.44);
+          |  }""".stripMargin
+  }
+}
+
+trait BicolorShaderModule[H <: Hexagon] extends ShaderModule[H] {
+
+  def color0: DynamicColor
+
+  def color1: DynamicColor
+
+  def uniforms: Map[String, String] = Map(
+    "u_color0" -> "v4",
+    "u_noise0" -> "v3",
+    "u_shading0" -> "v3",
+    "u_scaling0" -> "v2",
+    "u_color1" -> "v4",
+    "u_noise1" -> "v3",
+    "u_shading1" -> "v3",
+    "u_scaling1" -> "v2"
+    )
+
+  def loadUniforms(loadUniform: (String, js.Any) => Unit ): Unit = {
+    loadUniform( "u_color0", new Vector4(
+      color0.baseColor.r,
+      color0.baseColor.g,
+      color0.baseColor.b,
+      color0.baseColor.a
+    ) )
+    val noise0 = color0.noiseCoeffs
+    loadUniform( "u_noise0", new Vector3(
+      noise0._1,
+      noise0._2,
+      noise0._3
+    ) )
+    val shading0 = color0.shadingCoeffs
+    loadUniform( "u_shading0", new Vector3(
+      shading0._1,
+      shading0._2,
+      shading0._3
+    ) )
+    loadUniform( "u_scaling0", new Vector2(
+      color0.noiseScalingX,
+      color0.noiseScalingY
+    ) )
+
+    loadUniform( "u_color1", new Vector4(
+      color1.baseColor.r,
+      color1.baseColor.g,
+      color1.baseColor.b,
+      color1.baseColor.a
+    ) )
+    val noise1 = color1.noiseCoeffs
+    loadUniform( "u_noise1", new Vector3(
+      noise1._1,
+      noise1._2,
+      noise1._3
+    ) )
+    val shading1 = color1.shadingCoeffs
+    loadUniform( "u_shading1", new Vector3(
+      shading1._1,
+      shading1._2,
+      shading1._3
+    ) )
+    loadUniform( "u_scaling1", new Vector2(
+      color1.noiseScalingX,
+      color1.noiseScalingY
+    ) )
+  }
+
+  def applyColorShading =
+      """  vec4 color0;
+        |  vec4 color1;
+        |  if ( a_centerFlag == 1.0 ) {
+        |    color0 = shaded3D(u_color0, u_noise0, u_shading0, u_scaling0, 4.44);
+        |    color1 = shaded3D(u_color1, u_noise1, u_shading1, u_scaling1, 4.44);
+        |  } else {
+        |    color0 = noised3D(u_color0, u_noise0, u_scaling0, 4.44);
+        |    color1 = noised3D(u_color1, u_noise1, u_scaling1, 4.44);
+        |  }
+        |  v_color = blendAlpha * color0 + (1.0 - blendAlpha) * color1;""".stripMargin
 }

@@ -2,8 +2,8 @@ package demo.webapp
 
 import geometry.Matrix4
 import org.denigma.threejs._
-import rendering.shaders.ShadersPack.ShaderPair
 import rendering.shaders.ShadersPack
+import rendering.shaders.ShaderModule
 
 import threejs._
 import world2d.HexaGrid._
@@ -64,7 +64,7 @@ class ThreeScene( cfg: Config ) {
   val renderer = new WebGLRenderer( ReadableWebGLRendererParameters )
   ( setBackgroundColor _ ).tupled( demo.JsColors.jsStringToFloats( cfg.`Background color` ) )
 
-  private var shaderModule: ShaderPair = ShadersPack( cfg.`Shader` )
+  private var shaderModule: ShaderModule[LivingHexagon] = ShadersPack( cfg.`Shader` )
 
   // ******************** view management ********************
 
@@ -108,85 +108,6 @@ class ThreeScene( cfg: Config ) {
 
   // ******************** mesh management ********************
 
-  private var flakeMesh: Option[Mesh] = None
-
-  def setFlake( flake: Flake[LivingHexagon] ): Unit = {
-    flakeMesh.foreach { case oldM =>
-      scene.remove( oldM )
-      oldM.geometry.dispose()
-    }
-    flakeMesh = None
-
-    val later = now + 250 // arbitrary, hopefully later than mesh making time
-    val mesh = shaderModule.blockShader.makeMesh( new LivingHexagon(0,0) +: flake.transpose.flatten,
-      birthOffset = later,
-      limit = Some( cfg.safeFlakeSize * 6 ) )
-    flakeMesh = Some( mesh )
-
-    if ( cfg.`Draw flake` ) {
-      shaderModule.blockShader.loadUniforms(updateMeshUniform( mesh ))
-      scene.add( mesh )
-    }
-  }
-
-  def killFlake( deathFct: () => Float ): Unit = {
-    flakeMesh.foreach { case mesh =>
-      val deaths = mesh.geometry.asInstanceOf[threejs.MyBufferGeometry].getAttribute("a_deathtime")
-      for( i <- 0 until deaths.count.asInstanceOf[Int] / 7 ) {
-        val deathTime = deathFct()
-        val oldDeathTime = deaths.array.asInstanceOf[js.Array[Float]]( 7 * i )
-        if ( oldDeathTime > deathTime ) {
-          for( j <- 0 until 7 ) {
-            deaths.array.asInstanceOf[js.Array[Float]].update(7 * i + j, deathTime)
-          }
-        }
-      }
-      deaths.needsUpdate = true
-    }
-  }
-
-  def updateFlake(): Unit = flakeMesh.foreach { mesh =>
-    val n = now
-    val limit = cfg.safeFlakeSize * 6
-    val death = n + LivingHexagon.agonyDuration // give some time for death animation
-
-    val deaths = mesh.geometry.asInstanceOf[threejs.MyBufferGeometry].getAttribute("a_deathtime")
-    val births = mesh.geometry.asInstanceOf[threejs.MyBufferGeometry].getAttribute("a_birthtime")
-
-    val length = deaths.count.asInstanceOf[Int] / 7
-
-    for ( i <- 0 until length ) {
-      for ( j <- 0 until 7 ) {
-        val id = i*7 + j
-        val oldDeathTime = deaths.array.asInstanceOf[js.Array[Float]]( id )
-        if (i > limit) {
-          deaths.array.asInstanceOf[js.Array[Float]].update( id, math.min( death, oldDeathTime ) )
-        } else {
-          if (oldDeathTime < n) {
-            births.array.asInstanceOf[js.Array[Float]].update( id, n )
-          } else if (oldDeathTime < death) {
-            births.array.asInstanceOf[js.Array[Float]].update( id, 2*n - oldDeathTime )
-          }
-          deaths.array.asInstanceOf[js.Array[Float]].update( id, Float.MaxValue )
-        }
-      }
-    }
-    
-    deaths.needsUpdate = true
-    births.needsUpdate = true
-  }
-
-  def toggleFlake(): Unit = {
-    if ( cfg.`Draw flake` ) {
-      flakeMesh.foreach { mesh =>
-        shaderModule.blockShader.loadUniforms(updateMeshUniform( mesh ))
-        scene.add(mesh)
-      }
-    } else {
-      flakeMesh.foreach { scene.remove }
-    }
-  }
-
   private var backgroundMesh: Option[Mesh] = None
 
   def setBackground( hexagons: Seq[LivingHexagon] ): Unit = {
@@ -195,10 +116,10 @@ class ThreeScene( cfg: Config ) {
       oldM.geometry.dispose()
     }
 
-    val mesh = shaderModule.backgroundShader.makeMesh( hexagons )
+    val mesh = shaderModule.makeMesh( hexagons )
     backgroundMesh = Some( mesh )
 
-    shaderModule.backgroundShader.loadUniforms(updateMeshUniform( mesh ))
+    shaderModule.loadUniforms(updateMeshUniform( mesh ))
     scene.add( mesh )
   }
 
@@ -238,14 +159,15 @@ class ThreeScene( cfg: Config ) {
     gl.getParameter( gl.MAX_TEXTURE_SIZE ).asInstanceOf[Int]
   }
 
-  def setShaders( shaders: ShaderPair ): Unit = {
-    shaderModule = shaders
+  def setShaders( shaderModule: ShaderModule[LivingHexagon] ): Unit = {
+    this.shaderModule = shaderModule
   }
 
   def setBackgroundColor( r: Float, g: Float, b: Float ): Unit = {
     renderer.setClearColor( new org.denigma.threejs.Color( r, g, b ) )
   }
 
+  // TODO fix screenshot ignores downsampling
   def udpateDownsampling(): Unit = {
     adjustTexturing( innerWidth, innerHeight )
   }
@@ -294,13 +216,6 @@ class ThreeScene( cfg: Config ) {
     for( m <- backgroundMesh ) {
       val updateThis = updateMeshUniform( m ) _
       updateThis( "u_time", now )
-    }
-
-    if ( cfg.`Draw flake` ) {
-      for( m <- flakeMesh ) {
-        val updateThis = updateMeshUniform( m ) _
-        updateThis( "u_time", now )
-      }
     }
 
     renderer.clearColor()

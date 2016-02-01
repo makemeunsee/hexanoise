@@ -11,7 +11,5 @@ object MeshMaker {
 }
 
 trait MeshMaker[H <: Hexagon] {
-  def makeMesh(hexas: Seq[_ <: H],
-  	birthOffset: Float,
-  	limit: Option[Int] ): Mesh
+  def makeMesh(hexas: Seq[_ <: H] ): Mesh
 }
