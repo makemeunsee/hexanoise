@@ -1,0 +1,66 @@
+body {
+    margin: 0;
+    color: white;
+    font-family: Monospace;
+    height:100%;
+    width:100%;
+}
+
+p {
+    margin: 0.5rem 0;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#topbarRight {
+    float: right;
+}
+
+#topbarLeft {
+    float: left;
+}
+
+#centerView {
+    margin: 10px 10px 10px 10px;
+}
+
+#main {
+    position: absolute;
+    left: 0;
+    top: 0;
+}
+
+#shareLink {
+    background-color: #bbbbbb;
+}
+
+.gui {
+    background-color: #000;
+    filter:alpha(opacity=75);
+    -moz-opacity:0.75;
+    -khtml-opacity: 0.75;
+    opacity: 0.75;
+    z-index: 10000;
+    padding: 10px 10px 10px 10px;
+}
+
+.ui-progressbar {
+    position: absolute;
+    left: 20%;
+    top: 0px;
+    right: 0px;
+    width: 60%;
+    z-index: 10001;
+}
+
+#progress-label {
+    position: absolute;
+    left: 40%;
+    top: 4px;
+    font-weight: bold;
+    foreground: #ffffff;
+}
