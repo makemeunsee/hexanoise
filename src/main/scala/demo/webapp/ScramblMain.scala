@@ -9,7 +9,6 @@ import datgui.DatGUI
 import demo.JsColors
 import models.DefaultGridModel
 import rendering.shaders.ShadersPack
-import world2d._
 
 import scala.scalajs.js
 import scala.scalajs.js.annotation.{JSName, JSExport}
@@ -67,12 +66,6 @@ class ScramblMain(config: Config) {
   @JSExport
   val scene = new ThreeScene( config )
 
-  // ******************** stuff ********************
-
-  private val gridModel = new DefaultGridModel
-
-  private val worldHexas = gridModel.window(Point(-3200, -1800), Point(3200, 1800))._1
-
   // ******************** init code ********************
 
   def setupDatGUI( jsCfg: js.Dynamic ): Unit = {
@@ -83,7 +76,6 @@ class ScramblMain(config: Config) {
       .onFinishChange { string: String =>
         val shaders = ShadersPack( string )
         scene.setShaders( shaders )
-        scene.setBackground( worldHexas )
       }
 
     datGUI
@@ -102,7 +94,6 @@ class ScramblMain(config: Config) {
 
   @JSExport
   def loadModel(): Unit = {
-    scene.setBackground( worldHexas )
     val jsCfg = config.asInstanceOf[js.Dynamic]
     setupDatGUI( jsCfg )
     JQuery( "#progressbar" ).hide()

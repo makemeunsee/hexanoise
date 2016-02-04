@@ -40,9 +40,17 @@ object ShaderModule {
     "m3" -> "mat3",
     "m2" -> "mat2",
     "f" -> "float")
+
+  def uniformLoader( mesh: Mesh ): ( String, js.Any ) => Unit = {
+    val meshUniforms = mesh.material.asInstanceOf[ShaderMaterial].uniforms.asInstanceOf[scala.scalajs.js.Dynamic]
+    ( field, value ) =>
+      meshUniforms
+        .selectDynamic( field )
+        .updateDynamic( "value" )( value )
+  }
 }
 
-import ShaderModule.shortToType
+import ShaderModule._
 
 trait ShaderModule[H <: Hexagon] extends Shader with MeshMaker[H] {
 
@@ -51,18 +59,9 @@ trait ShaderModule[H <: Hexagon] extends Shader with MeshMaker[H] {
   def commonUniforms = Map("u_time" -> "1f")
 
   def uniforms: Map[String, String]
-  
+
   // TODO: split shader and mesh creation?
   def makeMesh( hexas: Seq[_ <: H] ): Mesh = {
-
-    val customUniforms = ( commonUniforms ++ uniforms ).foldLeft( js.Dynamic.literal() ) {
-      case (dynamic, (key, value)) =>
-        dynamic.updateDynamic( key )( js.Dynamic.literal(
-            "type" -> value,
-            "value" -> new js.Array[Float]
-          ) )
-        dynamic
-    }
 
     val geom = new MyBufferGeometry()
 
@@ -87,9 +86,6 @@ trait ShaderModule[H <: Hexagon] extends Shader with MeshMaker[H] {
 
     val shaderMaterial = new ShaderMaterial
     shaderMaterial.attributes = attrs
-    shaderMaterial.uniforms = customUniforms
-    shaderMaterial.vertexShader = vertexShader
-    shaderMaterial.fragmentShader = fragmentShader
     shaderMaterial.transparent = true
 
     // 0 = cullback
@@ -161,8 +157,40 @@ trait ShaderModule[H <: Hexagon] extends Shader with MeshMaker[H] {
 
     assembleMesh( geom, shaderMaterial, "baseMesh" )
   }
+
+  private def defineUniforms( mesh: Mesh ): Unit = {
+    val customUniforms = ( commonUniforms ++ uniforms ).foldLeft( js.Dynamic.literal() ) {
+      case (dynamic, (key, value)) =>
+        dynamic.updateDynamic( key )( js.Dynamic.literal(
+            "type" -> value,
+            "value" -> new js.Array[Float]
+          ) )
+        dynamic
+    }
+    mesh.material.asInstanceOf[ShaderMaterial].uniforms = customUniforms
+  }
   
-  def loadUniforms(loadUniform: (String, js.Any) => Unit ): Unit
+  protected def loadUniforms( mesh: Mesh ): Unit
+  
+  private def loadShaders( mesh: Mesh ): Boolean = {
+    val shaderMaterial = mesh.material.asInstanceOf[ShaderMaterial]
+    
+    val oldVertexShader = shaderMaterial.vertexShader
+    val oldFragmentShader = shaderMaterial.fragmentShader
+    
+    shaderMaterial.vertexShader = vertexShader
+    shaderMaterial.fragmentShader = fragmentShader
+
+    oldVertexShader != vertexShader || oldFragmentShader != fragmentShader
+  }
+
+  def update( mesh: Mesh ): Unit = {
+    if ( loadShaders( mesh ) ) {
+      defineUniforms( mesh )
+      mesh.material.asInstanceOf[ShaderMaterial].needsUpdate = true
+    }
+    loadUniforms( mesh )
+  }
 
   // shaders related code
 
@@ -236,7 +264,7 @@ trait ShaderModule[H <: Hexagon] extends Shader with MeshMaker[H] {
           |  float hAlpha = sin(noise * $twoPi);
           |  position = position + (hAlpha * $amplitude + $shift) * (position - a_center);""".stripMargin
     case SimplexNoise2D(xScale, yScale, rate, amplitude, shift) =>
-      s"""|  float noise = snoise3D(vec3(a_center / ${LivingHexagon.scaling * 2} * vec2( $xScale, $yScale ), 0));
+      s"""|  float noise = snoise3D(vec3(a_center / ${LivingHexagon.scaling * 2} * vec2( $xScale, $yScale ), 4.44));
           |  float hAlpha = sin(u_time * $rate * $twoPiBy1000 + noise * $twoPi);
           |  position = position + (hAlpha * $amplitude + $shift) * (position - a_center);""".stripMargin
     case NoFX => ""
@@ -362,26 +390,28 @@ trait MonocolorShaderModule[H <: Hexagon] extends ShaderModule[H] {
     "u_scaling0" -> "v2"
     )
 
-  def loadUniforms(loadUniform: (String, js.Any) => Unit ): Unit = {
-    loadUniform( "u_color0", new Vector4(
+  protected def loadUniforms( mesh: Mesh ): Unit = {
+    val loader = uniformLoader( mesh )
+
+    loader( "u_color0", new Vector4(
       color.baseColor.r,
       color.baseColor.g,
       color.baseColor.b,
       color.baseColor.a
     ) )
     val noise0 = color.noiseCoeffs
-    loadUniform( "u_noise0", new Vector3(
+    loader( "u_noise0", new Vector3(
       noise0._1,
       noise0._2,
       noise0._3
     ) )
     val shading0 = color.shadingCoeffs
-    loadUniform( "u_shading0", new Vector3(
+    loader( "u_shading0", new Vector3(
       shading0._1,
       shading0._2,
       shading0._3
     ) )
-    loadUniform( "u_scaling0", new Vector2(
+    loader( "u_scaling0", new Vector2(
       color.noiseScalingX,
       color.noiseScalingY
     ) )
@@ -423,49 +453,51 @@ trait BicolorShaderModule[H <: Hexagon] extends ShaderModule[H] {
     "u_scaling1" -> "v2"
     )
 
-  def loadUniforms(loadUniform: (String, js.Any) => Unit ): Unit = {
-    loadUniform( "u_color0", new Vector4(
+  protected def loadUniforms( mesh: Mesh ): Unit = {
+    val loader = uniformLoader( mesh )
+  
+    loader( "u_color0", new Vector4(
       color0.baseColor.r,
       color0.baseColor.g,
       color0.baseColor.b,
       color0.baseColor.a
     ) )
     val noise0 = color0.noiseCoeffs
-    loadUniform( "u_noise0", new Vector3(
+    loader( "u_noise0", new Vector3(
       noise0._1,
       noise0._2,
       noise0._3
     ) )
     val shading0 = color0.shadingCoeffs
-    loadUniform( "u_shading0", new Vector3(
+    loader( "u_shading0", new Vector3(
       shading0._1,
       shading0._2,
       shading0._3
     ) )
-    loadUniform( "u_scaling0", new Vector2(
+    loader( "u_scaling0", new Vector2(
       color0.noiseScalingX,
       color0.noiseScalingY
     ) )
 
-    loadUniform( "u_color1", new Vector4(
+    loader( "u_color1", new Vector4(
       color1.baseColor.r,
       color1.baseColor.g,
       color1.baseColor.b,
       color1.baseColor.a
     ) )
     val noise1 = color1.noiseCoeffs
-    loadUniform( "u_noise1", new Vector3(
+    loader( "u_noise1", new Vector3(
       noise1._1,
       noise1._2,
       noise1._3
     ) )
     val shading1 = color1.shadingCoeffs
-    loadUniform( "u_shading1", new Vector3(
+    loader( "u_shading1", new Vector3(
       shading1._1,
       shading1._2,
       shading1._3
     ) )
-    loadUniform( "u_scaling1", new Vector2(
+    loader( "u_scaling1", new Vector2(
       color1.noiseScalingX,
       color1.noiseScalingY
     ) )

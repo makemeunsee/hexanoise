@@ -100,7 +100,10 @@ object ShadersPack {
         DynamicColor(SimpleColor(0x650901ff), 0.32f, 1.28f,(100.0f,9.0f,100.0f)),
         Border(SimpleColor(0x7a71533a),1.6f),
         highlighting = SimplexNoise2D(xScale = 1f, yScale = 1f, rate = 1f, amplitude = 0.4f, shift = -1.5f))
-  
+
+  val StroboAmbersGradient = new BackgroundShaderMono("StroboAmbersGradient",
+        StroboAmbers.color0,
+        colorShading = Color3D(0.15f) )  
 
   private val colorGreenSlither = DynamicColor(SimpleColor(0x75f786ff), 0.02f, 0.08f,(5.0f,0.5f,100f))
   val GreenSlither = new BackgroundShaderMono("GreenSlither",
@@ -120,6 +123,10 @@ object ShadersPack {
         StroboAmbers.border,
         highlighting = SimplexNoise3D(xScale = 1f/20, yScale = 1f/20, rate = 0.3f, amplitude = 0.8f, shift = -0.6f))
 
+  val LimeGradient = new BackgroundShaderMono("LimeGradient",
+        HeadacheMachine2.color,
+        colorShading = Color3D(0.15f) ) 
+
   val HeadacheMachine3 = new BackgroundShaderBi("HeadacheMachine3",
         StroboAmbers.color0,
         StroboAmbers.color1,
@@ -128,7 +135,8 @@ object ShadersPack {
   
   val values = Seq(LavaLamp, PinkArt, BlueOnBlue,
                    LavaBasaltGradient, LavaBasaltCubic,
-                   Kurosawa, Mosaic, PurpleInRain, Sunset, Impressionist, StroboAmbers,
+                   Kurosawa, Mosaic, PurpleInRain, Sunset, Impressionist,
+                   StroboAmbers, StroboAmbersGradient, LimeGradient,
                    HeadacheMachine, HeadacheMachine2, HeadacheMachine3,
                    GreenSlither)
 }

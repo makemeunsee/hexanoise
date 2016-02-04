@@ -6,8 +6,10 @@ import rendering.shaders.ShadersPack
 import rendering.shaders.ShaderModule
 
 import threejs._
+import models.DefaultGridModel
 import world2d.HexaGrid._
 import world2d.LivingHexagon
+import world2d.Point
 
 import scala.scalajs.js
 import scala.scalajs.js.annotation.JSExport
@@ -42,7 +44,7 @@ object ThreeScene {
 
 import demo.webapp.ThreeScene._
 
-class ThreeScene( cfg: Config ) {
+class ThreeScene( config: Config ) {
 
   // ******************** three scene basics ********************
 
@@ -62,9 +64,9 @@ class ThreeScene( cfg: Config ) {
 
   @JSExport
   val renderer = new WebGLRenderer( ReadableWebGLRendererParameters )
-  ( setBackgroundColor _ ).tupled( demo.JsColors.jsStringToFloats( cfg.`Background color` ) )
+  ( setBackgroundColor _ ).tupled( demo.JsColors.jsStringToFloats( config.`Background color` ) )
 
-  private var shaderModule: ShaderModule[LivingHexagon] = ShadersPack( cfg.`Shader` )
+  private var shaderModule: ShaderModule[LivingHexagon] = ShadersPack( config.`Shader` )
 
   // ******************** view management ********************
 
@@ -108,26 +110,23 @@ class ThreeScene( cfg: Config ) {
 
   // ******************** mesh management ********************
 
-  private var backgroundMesh: Option[Mesh] = None
+  private val gridModel = new DefaultGridModel
+  private val worldHexas = gridModel.window(Point(-1600, -900), Point(1600, 900))._1
+  println(s"worldHexas: ${worldHexas.size}")
+  private val backgroundMesh: Mesh = createBackground( worldHexas )
 
-  def setBackground( hexagons: Seq[LivingHexagon] ): Unit = {
-    backgroundMesh.foreach { case oldM =>
-      scene.remove( oldM )
-      oldM.geometry.dispose()
-    }
-
+  private def createBackground( hexagons: Seq[LivingHexagon] ): Mesh = {
     val mesh = shaderModule.makeMesh( hexagons )
-    backgroundMesh = Some( mesh )
-
-    shaderModule.loadUniforms(updateMeshUniform( mesh ))
+    shaderModule.update( mesh )
     scene.add( mesh )
+    mesh
   }
 
   private def makeScreenMesh: Mesh = {
     val plane = new PlaneBufferGeometry( 2, 2 )
 
     val customUniforms = js.Dynamic.literal(
-      "texture" -> js.Dynamic.literal("type" -> "t", "value" -> renderingTexture )
+      "u_texture" -> js.Dynamic.literal("type" -> "t", "value" -> renderingTexture )
     )
     val shaderMaterial = new ShaderMaterial
     shaderMaterial.uniforms = customUniforms
@@ -139,10 +138,10 @@ class ThreeScene( cfg: Config ) {
         |}
       """.stripMargin
     shaderMaterial.fragmentShader =
-      """uniform sampler2D texture;
+      """uniform sampler2D u_texture;
         |varying vec2 vUv;
         |void main(){
-        |    gl_FragColor = texture2D( texture, vUv );
+        |    gl_FragColor = texture2D( u_texture, vUv );
         |}
       """.stripMargin
     shaderMaterial.depthWrite = false
@@ -161,13 +160,13 @@ class ThreeScene( cfg: Config ) {
 
   def setShaders( shaderModule: ShaderModule[LivingHexagon] ): Unit = {
     this.shaderModule = shaderModule
+    shaderModule.update( backgroundMesh )
   }
 
   def setBackgroundColor( r: Float, g: Float, b: Float ): Unit = {
     renderer.setClearColor( new org.denigma.threejs.Color( r, g, b ) )
   }
 
-  // TODO fix screenshot ignores downsampling
   def udpateDownsampling(): Unit = {
     adjustTexturing( innerWidth, innerHeight )
   }
@@ -186,42 +185,25 @@ class ThreeScene( cfg: Config ) {
   }
 
   private def adjustTexturing( w: Int, h: Int ): Unit = {
-    val downsampling = cfg.safeDownsamplingFactor
+    val downsampling = config.safeDownsamplingFactor
     renderingTexture.dispose()
     renderingTexture = makeTexture( w / downsampling, h / downsampling )
   }
 
   // ******************** rendering ********************
 
-  private def updateMeshUniform( mesh: Mesh )( field: String, value: js.Any ): Unit = {
-    mesh.material.asInstanceOf[ShaderMaterial].uniforms.asInstanceOf[scala.scalajs.js.Dynamic]
-      .selectDynamic( field )
-      .updateDynamic( "value" )( value )
-  }
-
-  @JSExport
-  def renderNoTexture(): Unit = {
-    renderToTexture( None )
-  }
-
   @JSExport
   def render(): Unit = {
-    renderToTexture( Some( renderingTexture ) )
-    updateMeshUniform( screenMesh )( "texture", renderingTexture )
-    renderer.render( rtScene, dummyCam )
-  }
-
-  private def renderToTexture( texture: Option[WebGLRenderTarget] ): Unit = {
-
-    for( m <- backgroundMesh ) {
-      val updateThis = updateMeshUniform( m ) _
-      updateThis( "u_time", now )
-    }
-
+    ShaderModule.uniformLoader( backgroundMesh )( "u_time", now )
     renderer.clearColor()
-    texture match {
-      case Some( t ) => renderer.render( scene, camera, t )
-      case None      => renderer.render( scene, camera )
+
+    val applyDownsampling = config.safeDownsamplingFactor > 1
+    if ( applyDownsampling ) {
+      renderer.render( scene, camera, renderingTexture )
+      ShaderModule.uniformLoader( screenMesh )( "u_texture", renderingTexture )
+      renderer.render( rtScene, dummyCam )
+    } else {
+      renderer.render( scene, camera )
     }
   }
 }

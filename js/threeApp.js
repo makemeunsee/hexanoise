@@ -225,7 +225,7 @@ function appMain() {
 
         if (takeScreenshot) {
 
-            scramblMain.scene.renderNoTexture();
+            scramblMain.scene.render();
             canvas.toBlob(function(blob) {
                 saveAs(blob, "screenshot.png");
             });
