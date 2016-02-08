@@ -7,6 +7,8 @@ import rendering.shaders.ShaderModule
 
 import threejs._
 import models.DefaultGridModel
+import models.HexaWorldModel
+import models.HexaBlock
 import world2d.HexaGrid._
 import world2d.LivingHexagon
 import world2d.Point
@@ -44,7 +46,24 @@ object ThreeScene {
 
 import demo.webapp.ThreeScene._
 
-class ThreeScene( config: Config ) {
+class ThreeScene( config: Config ) extends HexaWorldModel {
+
+  private val span = 4
+  private val hexaBlocks = for( i <- -2 to 1; j <- -2 to 1) yield {
+    HexaBlock(span * 9 * i, span * 16 * j, ( span * 9 * (i+1) ) -1, ( span * 16 * (j+1) ) -1 )
+  }
+
+  private val gridModel = new DefaultGridModel
+
+  def updateBounds(x0: Double, y0: Double, x1: Double, y1: Double): HexaWorldModel = {
+    this
+  }
+
+  def blocks: Set[HexaBlock] = {
+    hexaBlocks.toSet
+  }
+
+  println(blocks.map(_.hexagons(gridModel)).map(_.toSet).reduce(_ intersect _))
 
   // ******************** three scene basics ********************
 
@@ -86,6 +105,8 @@ class ThreeScene( config: Config ) {
     camera.scale.y = oldCamera.scale.y
 
     adjustTexturing( innerWidth, innerHeight )
+
+    updateBounds(camera.left, camera.bottom, camera.right, camera.top)
   }
 
   @JSExport
@@ -110,13 +131,10 @@ class ThreeScene( config: Config ) {
 
   // ******************** mesh management ********************
 
-  private val gridModel = new DefaultGridModel
-  private val worldHexas = gridModel.window(Point(-1600, -900), Point(1600, 900))._1
-  println(s"worldHexas: ${worldHexas.size}")
-  private val backgroundMesh: Mesh = createBackground( worldHexas )
+  private val backgroundMeshes: Set[Mesh] = blocks map createBackground
 
-  private def createBackground( hexagons: Seq[LivingHexagon] ): Mesh = {
-    val mesh = shaderModule.makeMesh( hexagons )
+  private def createBackground( hexablock: HexaBlock ): Mesh = {
+    val mesh = shaderModule.makeMesh( hexablock.hexagons( gridModel ) )
     shaderModule.update( mesh )
     scene.add( mesh )
     mesh
@@ -160,7 +178,7 @@ class ThreeScene( config: Config ) {
 
   def setShaders( shaderModule: ShaderModule[LivingHexagon] ): Unit = {
     this.shaderModule = shaderModule
-    shaderModule.update( backgroundMesh )
+    backgroundMeshes foreach shaderModule.update
   }
 
   def setBackgroundColor( r: Float, g: Float, b: Float ): Unit = {
@@ -194,7 +212,9 @@ class ThreeScene( config: Config ) {
 
   @JSExport
   def render(): Unit = {
-    ShaderModule.uniformLoader( backgroundMesh )( "u_time", now )
+    for( backgroundMesh <- backgroundMeshes ) {
+      ShaderModule.uniformLoader( backgroundMesh )( "u_time", now )
+    }
     renderer.clearColor()
 
     val applyDownsampling = config.safeDownsamplingFactor > 1

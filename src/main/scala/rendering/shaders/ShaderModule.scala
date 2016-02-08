@@ -61,7 +61,7 @@ trait ShaderModule[H <: Hexagon] extends Shader with MeshMaker[H] {
   def uniforms: Map[String, String]
 
   // TODO: split shader and mesh creation?
-  def makeMesh( hexas: Seq[_ <: H] ): Mesh = {
+  def makeMesh( hexas: Iterable[_ <: H] ): Mesh = {
 
     val geom = new MyBufferGeometry()
 

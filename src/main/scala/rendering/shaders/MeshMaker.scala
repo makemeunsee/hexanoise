@@ -11,5 +11,5 @@ object MeshMaker {
 }
 
 trait MeshMaker[H <: Hexagon] {
-  def makeMesh(hexas: Seq[_ <: H] ): Mesh
+  def makeMesh(hexas: Iterable[_ <: H] ): Mesh
 }
