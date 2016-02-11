@@ -48,22 +48,86 @@ import demo.webapp.ThreeScene._
 
 class ThreeScene( config: Config ) extends HexaWorldModel {
 
-  private val span = 4
-  private val hexaBlocks = for( i <- -2 to 1; j <- -2 to 1) yield {
-    HexaBlock(span * 9 * i, span * 16 * j, ( span * 9 * (i+1) ) -1, ( span * 16 * (j+1) ) -1 )
-  }
+  // TODO: set hSpan and vSpan depending on screen ratio
+  // TODO: limit zoom to visible meshes
+  // TODO: find mem leak! (ram + gpu)
+
+  private val span = 5
+  private val spanHorizontal = 9 * span
+  private val spanVertical = 16 * span
+
+  private val maxBlocks = 4
 
   private val gridModel = new DefaultGridModel
 
-  def updateBounds(x0: Double, y0: Double, x1: Double, y1: Double): HexaWorldModel = {
+  private var backgrounds: Map[HexaBlock, Mesh] = Map.empty
+
+  def updateBounds(x0: Float, y0: Float, x1: Float, y1: Float): HexaWorldModel = {
+
+    freeBlocks(x0, y0, x1, y1)
+
+    val newBlocks = blockStream(x0, y0, x1, y1)
+      .filterNot(backgrounds.contains)
+      .take(maxBlocks - backgrounds.size)
+    
+    println("adding", newBlocks)
+
+    backgrounds = newBlocks.foldLeft(backgrounds) { case (acc, block) =>
+      acc + ( ( block, createBackground(block) ) )
+    }
+    
+    println(s"backgrounds ${backgrounds.size}")
+    
     this
   }
 
   def blocks: Set[HexaBlock] = {
-    hexaBlocks.toSet
+    backgrounds.keySet
   }
 
-  println(blocks.map(_.hexagons(gridModel)).map(_.toSet).reduce(_ intersect _))
+  private def blockStream(x0: Float, y0: Float, x1: Float, y1: Float): Iterable[HexaBlock] = {
+    val hexa0 = gridModel.at(Point(x0, y0))
+    val hexa1 = gridModel.at(Point(x1, y1))
+    println("hexa limits", hexa0.x, hexa0.y, hexa1.x, hexa1.y)
+    val i0 = math.floor( hexa0.x.toFloat / spanHorizontal ).toInt
+    val i1 = math.ceil( hexa1.x.toFloat / spanHorizontal ).toInt
+    val j0 = math.floor( hexa0.y.toFloat / spanVertical ).toInt
+    val j1 = math.ceil( hexa1.y.toFloat / spanVertical ).toInt
+    println("streaming limits", i0,j0,i1,j1)
+    for( i <- i0 until i1 ;
+         j <- j0 until j1 ) yield {
+      HexaBlock(spanHorizontal * i, spanVertical * j, ( spanHorizontal * (i+1) ) -1, ( spanVertical * (j+1) ) -1 )
+    }
+  }
+
+  private def freeBlocks(x0: Float, y0: Float, x1: Float, y1: Float): Unit = {
+    val cornerHexas = Seq( (x0,y0), (x1,y0), (x0,y1), (x1,y1) )
+      .map( (Point.apply _).tupled )
+      .map( gridModel.at )
+
+    println( "blocks", backgrounds.keys )
+    println( "corner hexas", cornerHexas.map( h => (h.x, h.y) ) )
+    
+    val ( toKeep, toRemove ) = backgrounds.partition { case (hexablock, _) =>
+      cornerHexas exists hexablock.contains
+    }
+
+    println("removing", toRemove.keys)
+    
+    for( mesh <- toRemove.values ) {
+      scene.remove( mesh )
+      mesh.material.dispose()
+      mesh.geometry.dispose()
+    }
+    backgrounds = toKeep
+  }
+
+  private def createBackground( hexablock: HexaBlock ): Mesh = {
+    val mesh = shaderModule.makeMesh( hexablock.hexagons( gridModel ) )
+    shaderModule.update( mesh )
+    scene.add( mesh )
+    mesh
+  }
 
   // ******************** three scene basics ********************
 
@@ -89,8 +153,17 @@ class ThreeScene( config: Config ) extends HexaWorldModel {
 
   // ******************** view management ********************
 
-  private var innerWidth: Int = 0
-  private var innerHeight: Int = 0
+  private var innerWidth: Int = 1
+  private var innerHeight: Int = 1
+
+  private def cameraChanged(): Unit = {
+    val x0 = camera.left   * camera.scale.x + camera.position.x * innerWidth  / 2 
+    val x1 = camera.right  * camera.scale.x + camera.position.x * innerWidth  / 2 
+    val y0 = camera.bottom * camera.scale.x + camera.position.y * innerHeight / 2
+    val y1 = camera.top    * camera.scale.x + camera.position.y * innerHeight / 2
+    println("cam view", x0, y0, x1, y1)
+    updateBounds( x0.toFloat, y0.toFloat, x1.toFloat, y1.toFloat )
+  }
 
   @JSExport
   def updateViewport( width: Int, height: Int ): Unit = {
@@ -106,13 +179,15 @@ class ThreeScene( config: Config ) extends HexaWorldModel {
 
     adjustTexturing( innerWidth, innerHeight )
 
-    updateBounds(camera.left, camera.bottom, camera.right, camera.top)
+    cameraChanged()
   }
 
   @JSExport
   def dragView( deltaX: Int, deltaY: Int ): Unit = {
     camera.position.x -= deltaX.toFloat / innerWidth * 2 * camera.scale.x
     camera.position.y += deltaY.toFloat / innerHeight * 2 * camera.scale.y
+
+    cameraChanged()
   }
 
   private val zoomSpeed = 1.1f
@@ -122,23 +197,16 @@ class ThreeScene( config: Config ) extends HexaWorldModel {
     case -1 =>
       camera.scale.x = camera.scale.x * zoomSpeed
       camera.scale.y = camera.scale.y * zoomSpeed
+      cameraChanged()
     case 1 =>
       camera.scale.x = camera.scale.x / zoomSpeed
       camera.scale.y = camera.scale.y / zoomSpeed
+      cameraChanged()
     case _ =>
       ()
   }
 
   // ******************** mesh management ********************
-
-  private val backgroundMeshes: Set[Mesh] = blocks map createBackground
-
-  private def createBackground( hexablock: HexaBlock ): Mesh = {
-    val mesh = shaderModule.makeMesh( hexablock.hexagons( gridModel ) )
-    shaderModule.update( mesh )
-    scene.add( mesh )
-    mesh
-  }
 
   private def makeScreenMesh: Mesh = {
     val plane = new PlaneBufferGeometry( 2, 2 )
@@ -178,7 +246,7 @@ class ThreeScene( config: Config ) extends HexaWorldModel {
 
   def setShaders( shaderModule: ShaderModule[LivingHexagon] ): Unit = {
     this.shaderModule = shaderModule
-    backgroundMeshes foreach shaderModule.update
+    backgrounds.values foreach shaderModule.update
   }
 
   def setBackgroundColor( r: Float, g: Float, b: Float ): Unit = {
@@ -212,7 +280,7 @@ class ThreeScene( config: Config ) extends HexaWorldModel {
 
   @JSExport
   def render(): Unit = {
-    for( backgroundMesh <- backgroundMeshes ) {
+    for( backgroundMesh <- backgrounds.values ) {
       ShaderModule.uniformLoader( backgroundMesh )( "u_time", now )
     }
     renderer.clearColor()
