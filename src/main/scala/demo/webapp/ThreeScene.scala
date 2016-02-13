@@ -52,7 +52,7 @@ class ThreeScene( config: Config ) extends HexaWorldModel {
   // TODO: limit zoom to visible meshes
   // TODO: find mem leak! (ram + gpu)
 
-  private val span = 5
+  private val span = 8
   private val spanHorizontal = 9 * span
   private val spanVertical = 16 * span
 
@@ -70,13 +70,9 @@ class ThreeScene( config: Config ) extends HexaWorldModel {
       .filterNot(backgrounds.contains)
       .take(maxBlocks - backgrounds.size)
     
-    println("adding", newBlocks)
-
     backgrounds = newBlocks.foldLeft(backgrounds) { case (acc, block) =>
       acc + ( ( block, createBackground(block) ) )
     }
-    
-    println(s"backgrounds ${backgrounds.size}")
     
     this
   }
@@ -88,12 +84,10 @@ class ThreeScene( config: Config ) extends HexaWorldModel {
   private def blockStream(x0: Float, y0: Float, x1: Float, y1: Float): Iterable[HexaBlock] = {
     val hexa0 = gridModel.at(Point(x0, y0))
     val hexa1 = gridModel.at(Point(x1, y1))
-    println("hexa limits", hexa0.x, hexa0.y, hexa1.x, hexa1.y)
     val i0 = math.floor( hexa0.x.toFloat / spanHorizontal ).toInt
     val i1 = math.ceil( hexa1.x.toFloat / spanHorizontal ).toInt
     val j0 = math.floor( hexa0.y.toFloat / spanVertical ).toInt
     val j1 = math.ceil( hexa1.y.toFloat / spanVertical ).toInt
-    println("streaming limits", i0,j0,i1,j1)
     for( i <- i0 until i1 ;
          j <- j0 until j1 ) yield {
       HexaBlock(spanHorizontal * i, spanVertical * j, ( spanHorizontal * (i+1) ) -1, ( spanVertical * (j+1) ) -1 )
@@ -105,19 +99,17 @@ class ThreeScene( config: Config ) extends HexaWorldModel {
       .map( (Point.apply _).tupled )
       .map( gridModel.at )
 
-    println( "blocks", backgrounds.keys )
-    println( "corner hexas", cornerHexas.map( h => (h.x, h.y) ) )
-    
     val ( toKeep, toRemove ) = backgrounds.partition { case (hexablock, _) =>
       cornerHexas exists hexablock.contains
     }
 
-    println("removing", toRemove.keys)
-    
     for( mesh <- toRemove.values ) {
       scene.remove( mesh )
-      mesh.material.dispose()
+
       mesh.geometry.dispose()
+      mesh.geometry = null
+      mesh.material.dispose()
+      mesh.material = null
     }
     backgrounds = toKeep
   }
@@ -161,7 +153,6 @@ class ThreeScene( config: Config ) extends HexaWorldModel {
     val x1 = camera.right  * camera.scale.x + camera.position.x * innerWidth  / 2 
     val y0 = camera.bottom * camera.scale.x + camera.position.y * innerHeight / 2
     val y1 = camera.top    * camera.scale.x + camera.position.y * innerHeight / 2
-    println("cam view", x0, y0, x1, y1)
     updateBounds( x0.toFloat, y0.toFloat, x1.toFloat, y1.toFloat )
   }
 
