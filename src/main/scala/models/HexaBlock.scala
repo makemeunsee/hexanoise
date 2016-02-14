@@ -16,9 +16,3 @@ case class HexaBlock(x0: Int, y0: Int, x1: Int, y1: Int) {
     y >= y0 && y <= y1
   }
 }
-
-trait HexaWorldModel {
-  // using real coordinates
-  def updateBounds(x0: Float, y0: Float, x1: Float, y1: Float): HexaWorldModel
-  def blocks: Set[HexaBlock]
-}

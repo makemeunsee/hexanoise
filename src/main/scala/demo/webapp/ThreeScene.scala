@@ -7,11 +7,8 @@ import rendering.shaders.ShaderModule
 
 import threejs._
 import models.DefaultGridModel
-import models.HexaWorldModel
 import models.HexaBlock
-import world2d.HexaGrid._
-import world2d.LivingHexagon
-import world2d.Point
+import world2d.{Hexagon, LivingHexagon, Point}
 
 import scala.scalajs.js
 import scala.scalajs.js.annotation.JSExport
@@ -24,14 +21,10 @@ object ThreeScene {
   private val textureW = 256
   private val textureH = 128
 
-  def colorCode( faceId: Int ) = faceId +1
-
-  def revertColorCode( colorCode: Int ): Int = {
-    colorCode -1
-  }
+  private val MAX_HEXAGONS = 65536 * 4
 
   import scala.language.implicitConversions
-  implicit def toJsMatrix( m: Matrix4 ): org.denigma.threejs.Matrix4 = {
+  implicit private def toJsMatrix( m: Matrix4 ): org.denigma.threejs.Matrix4 = {
     val r = new org.denigma.threejs.Matrix4()
     r.set( m.a00, m.a01, m.a02, m.a03
          , m.a10, m.a11, m.a12, m.a13
@@ -41,101 +34,64 @@ object ThreeScene {
     r
   }
 
-  val t0 = System.currentTimeMillis
-}
+  private val zoomSpeed = 1.1f
 
-import demo.webapp.ThreeScene._
+  private val t0 = System.currentTimeMillis
 
-class ThreeScene( config: Config ) extends HexaWorldModel {
+  private val cameraShift = 0 // 25000
 
-  // TODO: set hSpan and vSpan depending on screen ratio
-  // TODO: limit zoom to visible meshes
-  // TODO: find mem leak! (ram + gpu)
+  private def makeCamera( width: Int, height: Int, maybeOldCamera: Option[Camera] = None ): OrthographicCamera = {
+    val camera = new OrthographicCamera( -width/2, width/2, height/2, -height/2, -0.1, 0.1 )
+    camera.position.x = cameraShift
+    camera.position.y = 0
+    camera.position.z = 1
+    camera.scale.x = 1
+    camera.scale.y = 1
+    camera.lookAt( new Vector3(cameraShift,0,0) )
 
-  private val span = 8
-  private val spanHorizontal = 9 * span
-  private val spanVertical = 16 * span
-
-  private val maxBlocks = 4
-
-  private val gridModel = new DefaultGridModel
-
-  private var backgrounds: Map[HexaBlock, Mesh] = Map.empty
-
-  def updateBounds(x0: Float, y0: Float, x1: Float, y1: Float): HexaWorldModel = {
-
-    freeBlocks(x0, y0, x1, y1)
-
-    val newBlocks = blockStream(x0, y0, x1, y1)
-      .filterNot(backgrounds.contains)
-      .take(maxBlocks - backgrounds.size)
-    
-    backgrounds = newBlocks.foldLeft(backgrounds) { case (acc, block) =>
-      acc + ( ( block, createBackground(block) ) )
+    for( oldCamera <- maybeOldCamera ) {
+      camera.position.x = oldCamera.position.x
+      camera.position.y = oldCamera.position.y
+      camera.scale.x = oldCamera.scale.x
+      camera.scale.y = oldCamera.scale.y
     }
-    
-    this
+
+    camera
   }
 
-  def blocks: Set[HexaBlock] = {
-    backgrounds.keySet
-  }
-
-  private def blockStream(x0: Float, y0: Float, x1: Float, y1: Float): Iterable[HexaBlock] = {
-    val hexa0 = gridModel.at(Point(x0, y0))
-    val hexa1 = gridModel.at(Point(x1, y1))
-    val i0 = math.floor( hexa0.x.toFloat / spanHorizontal ).toInt
-    val i1 = math.ceil( hexa1.x.toFloat / spanHorizontal ).toInt
-    val j0 = math.floor( hexa0.y.toFloat / spanVertical ).toInt
-    val j1 = math.ceil( hexa1.y.toFloat / spanVertical ).toInt
-    for( i <- i0 until i1 ;
-         j <- j0 until j1 ) yield {
+  private def computeHexablocks( spanHorizontal: Int, spanVertical: Int ): Seq[HexaBlock] = {
+    for( i <- -1 until 1 ;
+         j <- -1 until 1 ) yield {
       HexaBlock(spanHorizontal * i, spanVertical * j, ( spanHorizontal * (i+1) ) -1, ( spanVertical * (j+1) ) -1 )
     }
   }
 
-  private def freeBlocks(x0: Float, y0: Float, x1: Float, y1: Float): Unit = {
-    val cornerHexas = Seq( (x0,y0), (x1,y0), (x0,y1), (x1,y1) )
-      .map( (Point.apply _).tupled )
-      .map( gridModel.at )
+  private val hexaRatio = Hexagon.ySpacing / Hexagon.xSpacing
+}
 
-    val ( toKeep, toRemove ) = backgrounds.partition { case (hexablock, _) =>
-      cornerHexas exists hexablock.contains
-    }
+import demo.webapp.ThreeScene._
 
-    for( mesh <- toRemove.values ) {
-      scene.remove( mesh )
+class ThreeScene( config: Config, maxWidth: Int, maxHeight: Int ) {
 
-      mesh.geometry.dispose()
-      mesh.geometry = null
-      mesh.material.dispose()
-      mesh.material = null
-    }
-    backgrounds = toKeep
+  private val screenRatio = maxWidth.toFloat / maxHeight
+  private val spanHorizontal = math.sqrt(MAX_HEXAGONS.toFloat / 4 / screenRatio * hexaRatio).toInt
+  private val spanVertical = (spanHorizontal * screenRatio / hexaRatio).toInt
+
+  private val maxScale = {
+    val maxVertical = LivingHexagon.scaling * Hexagon.xSpacing * spanHorizontal.toFloat - 1
+    val maxHorizontal = LivingHexagon.scaling * Hexagon.ySpacing * (spanVertical - 1)
+
+    math.min( maxHorizontal / maxWidth, maxVertical / maxHeight )
   }
 
-  private def createBackground( hexablock: HexaBlock ): Mesh = {
-    val mesh = shaderModule.makeMesh( hexablock.hexagons( gridModel ) )
-    shaderModule.update( mesh )
-    scene.add( mesh )
-    mesh
-  }
-
-  // ******************** three scene basics ********************
-
-  // dummy cam for texture rendering
-  private val dummyCam = new Camera
-
-  private var camera = new OrthographicCamera
-  camera.position.x = 0
-  camera.position.y = 0
-  camera.position.z = 1
-  camera.scale.x = 2
-  camera.scale.y = 2
-  camera.lookAt( new Vector3(0,0,0) )
+  private val gridModel = new DefaultGridModel
 
   private val scene = new Scene
   private val rtScene = new Scene
+
+  // dummy cam for texture rendering
+  private val dummyCam = new Camera
+  private var camera = makeCamera( maxWidth, maxHeight )
 
   @JSExport
   val renderer = new WebGLRenderer( ReadableWebGLRendererParameters )
@@ -143,16 +99,37 @@ class ThreeScene( config: Config ) extends HexaWorldModel {
 
   private var shaderModule: ShaderModule[LivingHexagon] = ShadersPack( config.`Shader` )
 
+  private val backgrounds: Seq[Mesh] = computeHexablocks( spanHorizontal, spanVertical ) map createBackground
+
+  private def updateBounds( x0: Float, y0: Float, x1: Float, y1: Float ): Unit = {
+    val hexa0 = gridModel.at(Point(x0, y0))
+    val i = 1+math.floor( hexa0.x.toFloat / spanHorizontal ).toInt
+    val j = 1+math.floor( hexa0.y.toFloat / spanVertical ).toInt
+    val displacement = new LivingHexagon(spanHorizontal * i, spanVertical * j).center - new LivingHexagon(0, 0).center
+    for( mesh <- backgrounds ) {
+      ShaderModule.uniformLoader( mesh )( "u_xDisplacement", displacement.x )
+      ShaderModule.uniformLoader( mesh )( "u_yDisplacement", displacement.y )
+    }
+  }
+
+  private def createBackground( hexablock: HexaBlock ): Mesh = {
+    val mesh = ShaderModule.makeMesh( hexablock.hexagons( gridModel ) )
+    shaderModule.update( mesh )
+    scene.add( mesh )
+    mesh
+  }
+
   // ******************** view management ********************
 
   private var innerWidth: Int = 1
   private var innerHeight: Int = 1
 
   private def cameraChanged(): Unit = {
+//    camera.lookAt( new Vector3(camera.position.x,camera.position.y,0) )
     val x0 = camera.left   * camera.scale.x + camera.position.x * innerWidth  / 2 
     val x1 = camera.right  * camera.scale.x + camera.position.x * innerWidth  / 2 
-    val y0 = camera.bottom * camera.scale.x + camera.position.y * innerHeight / 2
-    val y1 = camera.top    * camera.scale.x + camera.position.y * innerHeight / 2
+    val y0 = camera.bottom * camera.scale.y + camera.position.y * innerHeight / 2
+    val y1 = camera.top    * camera.scale.y + camera.position.y * innerHeight / 2
     updateBounds( x0.toFloat, y0.toFloat, x1.toFloat, y1.toFloat )
   }
 
@@ -162,11 +139,7 @@ class ThreeScene( config: Config ) extends HexaWorldModel {
     innerHeight = height
 
     val oldCamera = camera
-    camera = new OrthographicCamera(-width/2, width/2, height/2, -height/2, -0.1, 0.1)
-    camera.position.x = oldCamera.position.x
-    camera.position.y = oldCamera.position.y
-    camera.scale.x = oldCamera.scale.x
-    camera.scale.y = oldCamera.scale.y
+    camera = makeCamera( width, height, Some(camera) )
 
     adjustTexturing( innerWidth, innerHeight )
 
@@ -177,19 +150,18 @@ class ThreeScene( config: Config ) extends HexaWorldModel {
   def dragView( deltaX: Int, deltaY: Int ): Unit = {
     camera.position.x -= deltaX.toFloat / innerWidth * 2 * camera.scale.x
     camera.position.y += deltaY.toFloat / innerHeight * 2 * camera.scale.y
-
     cameraChanged()
   }
-
-  private val zoomSpeed = 1.1f
 
   @JSExport
   def zoom( inOrOut: Int ): Unit = math.signum(inOrOut) match {
     case -1 =>
-      camera.scale.x = camera.scale.x * zoomSpeed
-      camera.scale.y = camera.scale.y * zoomSpeed
+      // zooming out
+      camera.scale.x = math.min( maxScale, camera.scale.x * zoomSpeed )
+      camera.scale.y = math.min( maxScale, camera.scale.y * zoomSpeed )
       cameraChanged()
     case 1 =>
+      // zooming in
       camera.scale.x = camera.scale.x / zoomSpeed
       camera.scale.y = camera.scale.y / zoomSpeed
       cameraChanged()
@@ -237,7 +209,10 @@ class ThreeScene( config: Config ) extends HexaWorldModel {
 
   def setShaders( shaderModule: ShaderModule[LivingHexagon] ): Unit = {
     this.shaderModule = shaderModule
-    backgrounds.values foreach shaderModule.update
+    backgrounds foreach shaderModule.update
+    println(shaderModule.vertexShader)
+    println(shaderModule.fragmentShader)
+    cameraChanged()
   }
 
   def setBackgroundColor( r: Float, g: Float, b: Float ): Unit = {
@@ -256,8 +231,8 @@ class ThreeScene( config: Config ) extends HexaWorldModel {
   private def makeTexture( w: Int, h: Int ): WebGLRenderTarget = {
     val t = new WebGLRenderTarget( w, h )
     //    t.asInstanceOf[js.Dynamic].updateDynamic( "format" )( 1020d ) // RGB
-    t.asInstanceOf[js.Dynamic].updateDynamic( "minFilter" )( 1006d ) // Linear, needed for non power of 2 sizes
-    t.asInstanceOf[js.Dynamic].updateDynamic( "magFilter" )( 1003d ) // Nearest. Comment for smoother rendering
+    t.asInstanceOf[js.Dynamic].updateDynamic( "texture.minFilter" )( 1006d ) // Linear, needed for non power of 2 sizes
+    t.asInstanceOf[js.Dynamic].updateDynamic( "texture.magFilter" )( 1003d ) // Nearest. Comment for smoother rendering
     t
   }
 
@@ -271,7 +246,7 @@ class ThreeScene( config: Config ) extends HexaWorldModel {
 
   @JSExport
   def render(): Unit = {
-    for( backgroundMesh <- backgrounds.values ) {
+    for( backgroundMesh <- backgrounds ) {
       ShaderModule.uniformLoader( backgroundMesh )( "u_time", now )
     }
     renderer.clearColor()

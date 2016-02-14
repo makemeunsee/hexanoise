@@ -8,9 +8,9 @@ object Hexagon {
   private val piTimes2By3 = 2 * math.Pi / 3f
 
   val xSpacing = 1.5f
-  private val sqrt3by2 = math.sqrt(3)/2f
-  val ySpacing = 2 * sqrt3by2
-  
+  val ySpacing = math.sqrt(3)
+  private val sqrt3by2 = ySpacing/2
+
   sealed trait Neighbour {
     def next: Neighbour
     val nexts: Seq[Neighbour] = (0 until 6).map(i => (0 until i).foldLeft(this)((r, _) => r.next))

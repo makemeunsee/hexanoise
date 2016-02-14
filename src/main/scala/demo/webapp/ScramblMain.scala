@@ -5,16 +5,14 @@ package demo.webapp
  */
 
 import org.scalajs.dom
+``import org.scalajs.dom.screen
 import datgui.DatGUI
 import demo.JsColors
-import models.DefaultGridModel
 import rendering.shaders.ShadersPack
 
 import scala.scalajs.js
 import scala.scalajs.js.annotation.{JSName, JSExport}
 import scala.scalajs.js.{JSApp, JSON}
-import scala.scalajs.js.timers.setTimeout
-import scala.concurrent.duration.{Duration, MILLISECONDS}
 import scala.util.Try
 
 @JSName("jQuery")
@@ -64,7 +62,9 @@ class ScramblMain(config: Config) {
   // ******************** actual three.js scene ********************
 
   @JSExport
-  val scene = new ThreeScene( config )
+  val scene = new ThreeScene( config,
+    screen.width.toInt,
+    screen.height.toInt )
 
   // ******************** init code ********************
 

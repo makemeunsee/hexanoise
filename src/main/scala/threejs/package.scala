@@ -54,7 +54,6 @@ package object threejs {
     preserveDrawingBuffer = false
   }
 
-
   def assembleMesh( geometry: Geometry, material: Material, name: String ): Mesh = {
     val mesh = new Mesh
     mesh.geometry = geometry

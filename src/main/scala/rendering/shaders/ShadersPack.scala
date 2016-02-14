@@ -1,6 +1,5 @@
 package rendering.shaders
 
-import scala.util.Random
 import world2d.LivingHexagon
 import rendering.{SimpleColor, DynamicColor}
 
@@ -29,6 +28,10 @@ object ShadersPack {
   def apply(shaderName: String): ShaderModule[LivingHexagon] = {
     values.filter(_.name == shaderName).head
   }
+
+  val Grid = new BackgroundShaderMono("Grid",
+    DynamicColor(SimpleColor(0xffffffff), 0, 0, (0f,0f,0f), 0, 0, (0f,0f,0f)),
+    Border(SimpleColor(0x0),1f))
 
   private val colorLavaLamp = DynamicColor(SimpleColor(0xc41a4fff),0.04f,0.04f,(20.0f,20.0f,0.3f))
   val LavaLamp = BackgroundShaderMono("LavaLamp",
@@ -133,7 +136,7 @@ object ShadersPack {
         StroboAmbers.border,
         highlighting = SimplexNoise3D(xScale = 1f/30, yScale = 1f/24, rate = 0.2f, amplitude = 0.8f, shift = -1.2f))
   
-  val values = Seq(LavaLamp, PinkArt, BlueOnBlue,
+  val values = Seq(Grid, LavaLamp, PinkArt, BlueOnBlue,
                    LavaBasaltGradient, LavaBasaltCubic,
                    Kurosawa, Mosaic, PurpleInRain, Sunset, Impressionist,
                    StroboAmbers, StroboAmbersGradient, LimeGradient,
