@@ -5,7 +5,7 @@ package demo.webapp
  */
 
 import org.scalajs.dom
-``import org.scalajs.dom.screen
+import org.scalajs.dom.screen
 import datgui.DatGUI
 import demo.JsColors
 import rendering.shaders.ShadersPack

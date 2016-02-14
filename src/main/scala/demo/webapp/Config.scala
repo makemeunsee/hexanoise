@@ -44,11 +44,11 @@ case class Config (
   var `Background color`: String = JsColors.colorIntToJsString( Colors.BLACK ),
 
   // 0 <= downsampling <= 7
-  @(JSExport @field) 
+  @(JSExport @field)
   var `Downsampling`: Int = 0,
 
 @(JSExport @field)
-  var `Shader`: String = ShadersPack.LavaBasaltGradient.name
+  var `Shader`: String = ShadersPack.HeadacheMachine2.name
 ) {
 
   def safeDownsamplingFactor = math.pow( 2, math.max( 0, math.min( 7, `Downsampling` ) ) ).toInt

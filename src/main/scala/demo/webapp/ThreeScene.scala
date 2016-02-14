@@ -231,8 +231,8 @@ class ThreeScene( config: Config, maxWidth: Int, maxHeight: Int ) {
   private def makeTexture( w: Int, h: Int ): WebGLRenderTarget = {
     val t = new WebGLRenderTarget( w, h )
     //    t.asInstanceOf[js.Dynamic].updateDynamic( "format" )( 1020d ) // RGB
-    t.asInstanceOf[js.Dynamic].updateDynamic( "texture.minFilter" )( 1006d ) // Linear, needed for non power of 2 sizes
-    t.asInstanceOf[js.Dynamic].updateDynamic( "texture.magFilter" )( 1003d ) // Nearest. Comment for smoother rendering
+    t.asInstanceOf[js.Dynamic].updateDynamic( "minFilter" )( 1006d ) // Linear, needed for non power of 2 sizes
+    t.asInstanceOf[js.Dynamic].updateDynamic( "magFilter" )( 1003d ) // Nearest. Comment for smoother rendering
     t
   }
 
