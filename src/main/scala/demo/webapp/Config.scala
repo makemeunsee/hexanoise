@@ -47,7 +47,7 @@ case class Config (
   @(JSExport @field)
   var `Downsampling`: Int = 0,
 
-@(JSExport @field)
+  @(JSExport @field)
   var `Shader`: String = ShadersPack.HeadacheMachine2.name
 ) {
 

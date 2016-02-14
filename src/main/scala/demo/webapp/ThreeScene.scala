@@ -21,8 +21,6 @@ object ThreeScene {
   private val textureW = 256
   private val textureH = 128
 
-  private val MAX_HEXAGONS = 65536 * 4
-
   import scala.language.implicitConversions
   implicit private def toJsMatrix( m: Matrix4 ): org.denigma.threejs.Matrix4 = {
     val r = new org.denigma.threejs.Matrix4()
@@ -71,10 +69,10 @@ object ThreeScene {
 
 import demo.webapp.ThreeScene._
 
-class ThreeScene( config: Config, maxWidth: Int, maxHeight: Int ) {
+class ThreeScene( config: Config, maxWidth: Int, maxHeight: Int, maxHexagons: Int ) {
 
   private val screenRatio = maxWidth.toFloat / maxHeight
-  private val spanHorizontal = math.sqrt(MAX_HEXAGONS.toFloat / 4 / screenRatio * hexaRatio).toInt
+  private val spanHorizontal = math.sqrt(maxHexagons.toFloat / 4 / screenRatio * hexaRatio).toInt
   private val spanVertical = (spanHorizontal * screenRatio / hexaRatio).toInt
 
   private val maxScale = {
@@ -92,6 +90,8 @@ class ThreeScene( config: Config, maxWidth: Int, maxHeight: Int ) {
   // dummy cam for texture rendering
   private val dummyCam = new Camera
   private var camera = makeCamera( maxWidth, maxHeight )
+  camera.scale.x = math.min( maxScale, 1.0 )
+  camera.scale.y = math.min( maxScale, 1.0 )
 
   @JSExport
   val renderer = new WebGLRenderer( ReadableWebGLRendererParameters )
@@ -138,7 +138,6 @@ class ThreeScene( config: Config, maxWidth: Int, maxHeight: Int ) {
     innerWidth = width
     innerHeight = height
 
-    val oldCamera = camera
     camera = makeCamera( width, height, Some(camera) )
 
     adjustTexturing( innerWidth, innerHeight )

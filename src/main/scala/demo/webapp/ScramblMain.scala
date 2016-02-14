@@ -25,6 +25,8 @@ object ScramblMain extends JSApp {
 
   def main(): Unit = {}
 
+  private val DEFAULT_MAX_HEXAGONS = 65536
+
   @JSExport
   def init(): ScramblMain = {
     val search = dom.location.search.substring(1)
@@ -51,11 +53,16 @@ object ScramblMain extends JSApp {
       .filter( ShadersPack.values.map(_.name).toSet.contains )
       .getOrElse(config.`Shader`)
 
-    new ScramblMain(config)
+    val maxHexagons = args
+      .get("maxhexas")
+      .flatMap( str => Try{ Integer.parseInt( str ) }.toOption )
+      .getOrElse(DEFAULT_MAX_HEXAGONS)
+
+    new ScramblMain(config, maxHexagons)
   }
 }
 
-class ScramblMain(config: Config) {
+class ScramblMain(config: Config, maxHexagons:Int ) {
 
   private val datGUI = new DatGUI( js.Dynamic.literal( "load" -> JSON.parse( Config.presets ), "preset" -> "Default" ) )
 
@@ -64,7 +71,8 @@ class ScramblMain(config: Config) {
   @JSExport
   val scene = new ThreeScene( config,
     screen.width.toInt,
-    screen.height.toInt )
+    screen.height.toInt,
+    maxHexagons )
 
   // ******************** init code ********************
 
