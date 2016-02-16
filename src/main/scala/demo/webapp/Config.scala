@@ -48,9 +48,16 @@ case class Config (
   var `Downsampling`: Int = 0,
 
   @(JSExport @field)
+  var `Border size`: Float = 1.0f,
+
+  @(JSExport @field)
+  var `Cubic`: Boolean = false,
+
+  @(JSExport @field)
   var `Shader`: String = ShadersPack.HeadacheMachine2.name
 ) {
 
   def safeDownsamplingFactor = math.pow( 2, math.max( 0, math.min( 7, `Downsampling` ) ) ).toInt
+  def safeBorderSize = math.max( 0.0, math.min( 16.0, `Border size` ) ).toFloat
 
 }

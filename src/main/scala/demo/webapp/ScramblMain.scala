@@ -83,7 +83,8 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
       .addList( jsCfg, "Shader", ShadersPack.values.map(_.name).toJSArray )
       .onFinishChange { string: String =>
         val shaders = ShadersPack( string )
-        scene.setShaders( shaders )
+        scene.setShader( shaders )
+//        jsCfg.updateDynamic() // TODO
       }
 
     datGUI
@@ -96,6 +97,14 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
     datGUI
       .addRange( jsCfg, "Downsampling", 0, 7 ).step( 1 )
       .onChange { _: Float => scene.udpateDownsampling() }
+
+//    datGUI
+//      .addRange( jsCfg, "Border size", 0f, 16f ).step( 0.1f )
+//      .onChange { size: Float => scene.setBorderSize(size) }
+
+    datGUI
+      .addBoolean( jsCfg, "Cubic" )
+      .onChange { boolean: Boolean => scene.setCubic(boolean) }
 
     datGUI.open()
   }

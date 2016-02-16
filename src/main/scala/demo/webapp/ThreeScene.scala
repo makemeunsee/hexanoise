@@ -2,8 +2,7 @@ package demo.webapp
 
 import geometry.Matrix4
 import org.denigma.threejs._
-import rendering.shaders.ShadersPack
-import rendering.shaders.ShaderModule
+import rendering.shaders._
 
 import threejs._
 import models.DefaultGridModel
@@ -32,7 +31,7 @@ object ThreeScene {
     r
   }
 
-  private val zoomSpeed = 1.1f
+  private val zoomSpeed = 1.01f
 
   private val t0 = System.currentTimeMillis
 
@@ -98,6 +97,11 @@ class ThreeScene( config: Config, maxWidth: Int, maxHeight: Int, maxHexagons: In
   ( setBackgroundColor _ ).tupled( demo.JsColors.jsStringToFloats( config.`Background color` ) )
 
   private var shaderModule: ShaderModule[LivingHexagon] = ShadersPack( config.`Shader` )
+
+  def setCubic(cubic: Boolean): Unit = {
+    shaderModule = shaderModule.copy(cubic = cubic)
+    setShader( shaderModule )
+  }
 
   private val backgrounds: Seq[Mesh] = computeHexablocks( spanHorizontal, spanVertical ) map createBackground
 
@@ -206,7 +210,7 @@ class ThreeScene( config: Config, maxWidth: Int, maxHeight: Int, maxHexagons: In
     gl.getParameter( gl.MAX_TEXTURE_SIZE ).asInstanceOf[Int]
   }
 
-  def setShaders( shaderModule: ShaderModule[LivingHexagon] ): Unit = {
+  def setShader( shaderModule: ShaderModule[LivingHexagon] ): Unit = {
     this.shaderModule = shaderModule
     backgrounds foreach shaderModule.update
     println(shaderModule.vertexShader)
