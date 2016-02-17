@@ -17,18 +17,14 @@ case class Sinus(rate: Float = 1, amplitude: Float = 0.25f, shift: Float = 0f) e
 case class SimplexNoise2D(xScale: Float = 1, yScale: Float = 1, rate: Float = 1, amplitude: Float = 0.25f, shift: Float = 0f) extends AlphaFunction
 case class SimplexNoise3D(xScale: Float = 1, yScale: Float = 1, rate: Float = 1, amplitude: Float = 0.25f, shift: Float = 0f) extends AlphaFunction
 
-//sealed trait AlphaFunction2d
-//case class Sinus2d(rate: Float = 1, amplitudeX: Float = 0.25f, amplitudeY: Float = 0.25f, shiftX: Float = 0f, shiftY: Float = 0f) extends AlphaFunction2d
-
 sealed trait HighlightMode
 case class Pulsating(alphaFunction: AlphaFunction) extends HighlightMode
 case class Blending(alphaFunction: AlphaFunction) extends HighlightMode
-//case class Shaking(alphaFunction2d: AlphaFunction2d) extends HighlightMode // TODO
 
 sealed trait ColorShadingMode
 case class Color3D(rate: Float = 1) extends ColorShadingMode
 
-case object NoFX extends HighlightMode with BorderMode with ColorShadingMode with AlphaFunction //with AlphaFunction2d
+case object NoFX extends HighlightMode with BorderMode with ColorShadingMode
 
 object ShaderModule {
   val shortToType: Map[String, String] = Map(
@@ -216,21 +212,15 @@ trait ShaderModule[H <: Hexagon] extends Shader {
     case Sinus(rate, amplitude, shift) =>
       s"   float hAlpha = sin(u_time * $rate * $twoPiBy1000) * $amplitude + $shift;"
     case SimplexNoise2D(xScale, yScale, rate, amplitude, shift) =>
-    s"""|  float noise = snoise3D(vec3(center2d / ${LivingHexagon.scaling * 2} * vec2( $xScale, $yScale ), 4.44));
-        |  float hAlpha = sin(u_time * $rate * $twoPiBy1000 + noise * $twoPi) * $amplitude + $shift;""".stripMargin
+      s"""|  float noise = snoise3D(vec3(center2d / ${LivingHexagon.scaling * 2} * vec2( $xScale, $yScale ), 4.44));
+          |  float hAlpha = sin(u_time * $rate * $twoPiBy1000 + noise * $twoPi) * $amplitude + $shift;""".stripMargin
     case SimplexNoise3D(xScale, yScale, rate, amplitude, shift) =>
-    s"""|  float life = u_time / 1000.0 * $rate;
-        |  float noise = snoise3D(vec3( center2d / ${LivingHexagon.scaling * 2} * vec2( $xScale, $yScale ), life ));
-        |  float hAlpha = sin(u_time * $rate * $twoPiBy1000 + noise * $twoPi) * $amplitude + $shift;""".stripMargin
-    case NoFX => "  float hAlpha = 0.0;"
+      s"""|  float life = u_time / 1000.0 * $rate;
+          |  float noise = snoise3D(vec3( center2d / ${LivingHexagon.scaling * 2} * vec2( $xScale, $yScale ), life ));
+          |  float hAlpha = sin(u_time * $rate * $twoPiBy1000 + noise * $twoPi) * $amplitude + $shift;""".stripMargin
   }
 
-  //    case Sinus2d(rate, amplitudeX, amplitudeY, shiftX, shiftY) =>
-  //      s"   float hAlpha = sin(u_time * $rate * $twoPiBy1000) * vec2($amplitudeX, $amplitudeY) + vec2($shiftX, $shiftY);"
-
   private def highlight = highlighting match {
-//    case Shaking(alphaFunction2d) =>
-//      s"  position2d = position2d + hAlpha;"
     case Pulsating(alphaFunction) =>
       s"""|${alpha(alphaFunction)}
           |  position2d = position2d + hAlpha * (position2d - center2d);""".stripMargin
