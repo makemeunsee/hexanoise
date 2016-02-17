@@ -31,7 +31,7 @@ object ThreeScene {
     r
   }
 
-  private val zoomSpeed = 1.01f
+  private val zoomSpeed = 1.05f
 
   private val t0 = System.currentTimeMillis
 
@@ -142,7 +142,7 @@ class ThreeScene( config: Config, maxWidth: Int, maxHeight: Int, maxHexagons: In
     innerWidth = width
     innerHeight = height
 
-    camera = makeCamera( width, height, Some(camera) )
+    camera = makeCamera( width, height, maybeOldCamera = Some(camera) )
 
     adjustTexturing( innerWidth, innerHeight )
 

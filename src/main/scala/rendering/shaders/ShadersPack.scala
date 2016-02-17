@@ -108,6 +108,12 @@ object ShadersPack {
         Border(SimpleColor(0x7a71533a),1.6f),
         highlighting = Pulsating(SimplexNoise2D(xScale = 1f, yScale = 1f, rate = 1f, amplitude = 0.4f, shift = -1.5f)))
 
+  val StroboAmbers2 = new BackgroundShaderBi("StroboAmbers2",
+    StroboAmbers.color0,
+    StroboAmbers.color1,
+    StroboAmbers.border,
+    highlighting = Blending(SimplexNoise2D(xScale = 1f, yScale = 1f, rate = 1f, amplitude = 0.5f, shift = -0.5f)))
+
   val StroboAmbersGradient = new BackgroundShaderMono("StroboAmbersGradient",
         StroboAmbers.color0,
         colorShading = Color3D(0.15f) )  
@@ -131,8 +137,13 @@ object ShadersPack {
         highlighting = Pulsating(SimplexNoise3D(xScale = 1f/20, yScale = 1f/20, rate = 0.3f, amplitude = 0.8f, shift = -0.6f)))
 
   val LimeGradient = new BackgroundShaderMono("LimeGradient",
-        HeadacheMachine2.color,
-        colorShading = Color3D(0.15f) ) 
+    HeadacheMachine2.color,
+    colorShading = Color3D(0.15f) )
+
+  val LimeGradient2 = new BackgroundShaderMono("LimeGradient2",
+    LimeGradient.color,
+    colorShading = Color3D(0.15f),
+    highlighting = Blending(SimplexNoise3D(xScale = 1f/20, yScale = 1f/20, rate = 0.3f, amplitude = 0.5f, shift = -0.5f)) )
 
   val HeadacheMachine3 = new BackgroundShaderBi("HeadacheMachine3",
         StroboAmbers.color0,
@@ -143,7 +154,7 @@ object ShadersPack {
   val values = Seq(Grid, LavaLamp, PinkArt, BlueOnBlue,
                    LavaBasaltGradient, LavaBasaltCubic,
                    Kurosawa, Mosaic, PurpleInRain, Sunset, Impressionist,
-                   StroboAmbers, StroboAmbersGradient, LimeGradient,
+                   StroboAmbers, StroboAmbers2, StroboAmbersGradient, LimeGradient, LimeGradient2,
                    HeadacheMachine, HeadacheMachine2, HeadacheMachine3,
                    GreenSlither)
 }
