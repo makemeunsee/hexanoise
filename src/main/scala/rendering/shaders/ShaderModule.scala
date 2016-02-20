@@ -38,10 +38,11 @@ object ShaderModule {
 
   def uniformLoader( mesh: Mesh ): ( String, js.Any ) => Unit = {
     val meshUniforms = mesh.material.asInstanceOf[ShaderMaterial].uniforms.asInstanceOf[scala.scalajs.js.Dynamic]
-    ( field, value ) =>
+    ( field, value ) => {
       meshUniforms
         .selectDynamic( field )
         .updateDynamic( "value" )( value )
+    }
   }
 
   val verticePerHexa = 7 // 7 points to define the triangles in a hexagon
@@ -148,6 +149,8 @@ object ShaderModule {
 import ShaderModule._
 
 trait ShaderModule[H <: Hexagon] extends Shader {
+
+  def colors: Seq[DynamicColor]
 
   def name: String
 
@@ -342,6 +345,8 @@ void main()
 trait MonocolorShaderModule[H <: Hexagon] extends ShaderModule[H] {
   
   def color: DynamicColor
+
+  val colors = Seq(color)
   
   def uniforms: Map[String, String] = Map(
     "u_color0" -> "v4",
@@ -401,6 +406,8 @@ trait BicolorShaderModule[H <: Hexagon] extends ShaderModule[H] {
   def color0: DynamicColor
 
   def color1: DynamicColor
+
+  val colors = Seq(color0, color1)
 
   def uniforms: Map[String, String] = Map(
     "u_color0" -> "v4",

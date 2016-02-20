@@ -43,11 +43,6 @@ object ScramblMain extends JSApp {
       .map("#"+_)
       .getOrElse(config.`Background color`)
 
-    config.`Downsampling` = args
-      .get("downsampling")
-      .flatMap( str => Try{ Integer.parseInt( str ) }.toOption )
-      .getOrElse(config.`Downsampling`)
-
     config.`Shader` = args
       .get("shader")
       .filter( ShadersPack.values.map(_.name).toSet.contains )
@@ -82,9 +77,12 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
     datGUI
       .addList( jsCfg, "Shader", ShadersPack.values.map(_.name).toJSArray )
       .onFinishChange { string: String =>
-        val shaders = ShadersPack( string )
-        scene.setShader( shaders )
-//        jsCfg.updateDynamic() // TODO
+        val shader = ShadersPack( string )
+        scene.setShader( shader )
+
+        val bgColor = config.`Background color`
+        DatGUI.clear(datGUI)
+        setupDatGUI( Config.loadShader( shader, bgColor, string ).asInstanceOf[js.Dynamic] )
       }
 
     datGUI
@@ -95,16 +93,16 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
       }
 
     datGUI
-      .addRange( jsCfg, "Downsampling", 0, 7 ).step( 1 )
-      .onChange { _: Float => scene.udpateDownsampling() }
-
-//    datGUI
-//      .addRange( jsCfg, "Border size", 0f, 16f ).step( 0.1f )
-//      .onChange { size: Float => scene.setBorderSize(size) }
+      .addRange( jsCfg, "Blending rate", 0.5f, 10f ).step( 0.5f )
+      .onChange { size: Float =>
+        scene.setShader( config.toShader )
+      }
 
     datGUI
       .addBoolean( jsCfg, "Cubic" )
-      .onChange { boolean: Boolean => scene.setCubic(boolean) }
+      .onChange { boolean: Boolean =>
+        scene.setShader( config.toShader )
+      }
 
     datGUI.open()
   }
@@ -120,7 +118,6 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
   def shareLink(): String = {
     var path = dom.location.pathname + "?"
     path += "bg=" + config.`Background color`.substring(1)
-    path += "&downsampling=" + config.`Downsampling`
     path += "&shader=" + config.`Shader`
     path
   }

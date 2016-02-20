@@ -6,6 +6,20 @@ import scala.scalajs.js
  * Created by markus on 10/07/15.
  */
 
+object DatGUI {
+  def clear(datGUI: DatGUI): Unit = {
+    val length =
+      datGUI.asInstanceOf[js.Dynamic]
+        .selectDynamic("__controllers")
+        .selectDynamic("length")
+        .asInstanceOf[Int]
+
+    (0 until length) foreach { i =>
+      datGUI.remove( datGUI.asInstanceOf[js.Dynamic].selectDynamic("__controllers").selectDynamic( "0" ).asInstanceOf[DatController[_]] )
+    }
+  }
+}
+
 @scala.scalajs.js.annotation.JSName("dat.GUI")
 @scala.scalajs.js.annotation.RawJSType
 class DatGUI( obj: js.Dynamic ) {
