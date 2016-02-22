@@ -163,10 +163,12 @@ class ThreeScene( config: Config, maxWidth: Int, maxHeight: Int, maxHexagons: In
   def now: Float = System.currentTimeMillis - t0
 
   def setShader( shaderModule: ShaderModule[LivingHexagon] ): Unit = {
-    println(shaderModule.vertexShader)
-    println(shaderModule.fragmentShader)
-    println(shaderModule.colors)
-    println(shaderModule.blendingRate)
+    println("vertexShader", shaderModule.vertexShader)
+    println("fragmentShader", shaderModule.fragmentShader)
+    println("colors", shaderModule.colors)
+    println("border", shaderModule.border)
+    println("blendingRate", shaderModule.blendingRate)
+    println("cubic", shaderModule.cubic)
     this.shaderModule = shaderModule
     backgrounds foreach shaderModule.update
     cameraChanged()

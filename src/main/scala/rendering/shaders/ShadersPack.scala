@@ -9,31 +9,18 @@ case class BackgroundShaderMono(name: String,
                                 highlighting: HighlightMode = NoFX,
                                 colorShading: ColorShadingMode = NoFX,
                                 cubic: Boolean = false,
-                                blendingRate: Float = 1f)
-extends MonocolorShaderModule[LivingHexagon] {
-  def copy(name: String = name,
-           blendingRate: Float = blendingRate,
-           border: BorderMode = border,
-           highlighting: HighlightMode = highlighting,
-           cubic: Boolean = cubic): BackgroundShaderMono =
-    copy(name = name, blendingRate = blendingRate, border = border, highlighting = highlighting, cubic = cubic)
-}
+                                centerShading: Boolean = true)
+extends MonocolorShaderModule[LivingHexagon]
 
 case class BackgroundShaderBi(name: String,
                               color0: DynamicColor,
                               color1: DynamicColor,
                               border: BorderMode = NoFX,
                               highlighting: HighlightMode = NoFX,
+                              blendingRate: Float = 1f,
                               cubic: Boolean = false,
-                              blendingRate: Float = 1f)
-extends BicolorShaderModule[LivingHexagon] {
-  def copy(name: String = name,
-           blendingRate: Float = blendingRate,
-           border: BorderMode = border,
-           highlighting: HighlightMode = highlighting,
-           cubic: Boolean = cubic): BackgroundShaderBi =
-    copy(name = name, blendingRate = blendingRate, border = border, highlighting = highlighting, cubic = cubic)
-}
+                              centerShading: Boolean = true)
+extends BicolorShaderModule[LivingHexagon]
 
 object ShadersPack {
 
@@ -42,8 +29,9 @@ object ShadersPack {
   }
 
   val Grid = new BackgroundShaderMono("Grid",
-    DynamicColor(SimpleColor(0xffffffff), 0, 0, (0f,0f,0f), 0, 0, (0f,0f,0f)),
-    Border(SimpleColor(0x0),1f))
+    DynamicColor(SimpleColor(0xffffffff), 0, 0, (0f,0f,0f), 0, 0),
+    Border(SimpleColor(0x0),1f),
+    centerShading = false)
 
   private val colorLavaLamp = DynamicColor(SimpleColor(0xc41a4fff),0.04f,0.04f,(20.0f,20.0f,0.3f))
   val LavaLamp = BackgroundShaderMono("LavaLamp",
@@ -53,31 +41,32 @@ object ShadersPack {
 
   private val colorPinkArt = DynamicColor(SimpleColor(0x620d27ff),0.04f,0.04f,(20.0f,0.7f,10f))
   val PinkArt = new BackgroundShaderMono("PinkArt",
-        colorPinkArt,
-        cubic = true,
-        colorShading = Color3D(0.2f))
+    colorPinkArt,
+    cubic = true,
+    colorShading = Color3D(0.2f))
 
   private val colorBlueOnBlue = DynamicColor(SimpleColor(0x141a65ff),0.01f,0.01f,(0.33f,0.5f,1.0f))
   val BlueOnBlue = new BackgroundShaderMono("BlueOnBlue",
-        colorBlueOnBlue,
-        colorShading = Color3D(0.2f))
+    colorBlueOnBlue,
+    colorShading = Color3D(0.2f))
 
   private val colorLavaBasaltGradient = DynamicColor(SimpleColor(0xd83f00ff), 0.16f, 0.16f, (0.33f, 0.5f, 1f))
   val LavaBasaltGradient = new BackgroundShaderMono("LavaBasaltGradient",
-        colorLavaBasaltGradient,
-        colorShading = Color3D(0.15f) )
+    colorLavaBasaltGradient,
+    colorShading = Color3D(0.15f) )
 
-  private val colorLavaBasaltCubic = DynamicColor(SimpleColor(0xd83f00ff), 0.16f, 0.16f, (0.33f, 0.5f, 0.5f), shadingCoeffs = (-0.1f, -0.1f, -0.1f))
+  private val colorLavaBasaltCubic = DynamicColor(SimpleColor(0xd83f00ff), 0.16f, 0.16f, (0.33f, 0.5f, 0.5f))
   val LavaBasaltCubic = new BackgroundShaderMono("LavaBasaltCubic",
-        colorLavaBasaltCubic,
-        colorShading = Color3D(0.2f),
-        cubic = true )
+    colorLavaBasaltCubic,
+    colorShading = Color3D(0.2f),
+    cubic = true )
 
-  private val colorKurosawa = DynamicColor(SimpleColor(0x3b3979ff),0.16f,0.16f,(60.0f,8.0f,20.0f), shadingCoeffs = (0.0f,0.0f,0.0f))
+  private val colorKurosawa = DynamicColor(SimpleColor(0x3b3979ff),0.16f,0.16f,(60.0f,8.0f,20.0f))
   val Kurosawa = new BackgroundShaderMono("Kurosawa",
-        colorKurosawa,
-        Border(SimpleColor(0xd513df5b),1.6f),
-        colorShading = Color3D(0.2f))
+    colorKurosawa,
+    Border(SimpleColor(0xd513df5b),1.6f),
+    colorShading = Color3D(0.2f),
+    centerShading = false)
   
   private val colorMosaic = DynamicColor(SimpleColor(0xc4bf2aff),1.28f,1.28f,(3.0f,9.0f,60.0f))
   val Mosaic = new BackgroundShaderMono("Mosaic",

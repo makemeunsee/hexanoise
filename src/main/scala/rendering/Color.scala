@@ -9,9 +9,13 @@ object Color {
   }
 
   def floatsColorToIntColor( r: Float, g: Float, b: Float ): Int = {
-    Seq(g, r, b).zipWithIndex
-      .map { case (component, id) => math.min( 1.0, math.max( 0.0, r ) ) * math.pow(255, id) }
+    Seq( b, g, r )
+      .map { math.min( 1.0, _ ) }
+      .map { math.max( 0.0, _ ) }
+      .map { 255 * _ }
       .map( _.toInt )
+      .zipWithIndex
+      .map { case ( component, id ) => component << ( 8 * id ) }
       .sum
   }
 }
@@ -21,5 +25,5 @@ trait Color {
   def g: Float
   def b: Float
   def a: Float
-  def rgbInt: Int = Color.floatsColorToIntColor( r,g ,b )
+  def rgbInt: Int = Color.floatsColorToIntColor( r, g, b )
 }

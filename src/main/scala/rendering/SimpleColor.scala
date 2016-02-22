@@ -15,8 +15,6 @@ object SimpleColor {
   def bounded(f: Float): Float = math.min(1.0, math.max(0.0, f)).toFloat
 }
 
-import rendering.SimpleColor.bounded
-
 private case class PrivateSimpleColor(r: Float, g: Float, b: Float, a: Float) extends Color {
 
   private def fToHex(f: Float) = {

@@ -44,7 +44,8 @@ object Config {
       `Blending rate` = module.blendingRate,
       `Cubic` = module.cubic,
       `Shader` = name,
-      `Background color`= bgColor
+      `Background color`= bgColor,
+      `Shade center` = module.centerShading
     )
 
     val richConfig0 = module.border match {
@@ -52,7 +53,7 @@ object Config {
         baseConfig.copy(
           `Border size` = thickness,
           `Border color` = JsColors.colorIntToJsString( color.rgbInt ),
-          `Border alpha` = 0f
+          `Border alpha` = color.a
         )
       case NoFX =>
         baseConfig.copy(
@@ -74,41 +75,30 @@ object Config {
     val richConfig2 = module match {
       case monoModule: MonocolorShaderModule[_] =>
         richConfig1.copy(
-          `Bicolor` = false,
           `Color 1` = JsColors.colorIntToJsString( monoModule.color.baseColor.rgbInt ),
           `Alpha 1` = monoModule.color.baseColor.a,
-          `Scale x 1` = monoModule.color.noiseScalingX,
-          `Scale y 1` = monoModule.color.noiseScalingY,
+          `Scale x 1` = monoModule.color.noiseScalingX * 50,
+          `Scale y 1` = monoModule.color.noiseScalingY * 50,
           `Noise R 1` = monoModule.color.noiseCoeffs._1,
           `Noise G 1` = monoModule.color.noiseCoeffs._2,
-          `Noise B 1` = monoModule.color.noiseCoeffs._3,
-          `Shading R 1` = monoModule.color.shadingCoeffs._1,
-          `Shading G 1` = monoModule.color.shadingCoeffs._2,
-          `Shading B 1` = monoModule.color.shadingCoeffs._3
+          `Noise B 1` = monoModule.color.noiseCoeffs._3
         )
       case biModule: BicolorShaderModule[_] =>
         richConfig1.copy(
-          `Bicolor` = true,
           `Color 1` = JsColors.colorIntToJsString( biModule.color0.baseColor.rgbInt ),
           `Alpha 1` = biModule.color0.baseColor.a,
-          `Scale x 1` = biModule.color0.noiseScalingX,
-          `Scale y 1` = biModule.color0.noiseScalingY,
+          `Scale x 1` = biModule.color0.noiseScalingX * 50,
+          `Scale y 1` = biModule.color0.noiseScalingY * 50,
           `Noise R 1` = biModule.color0.noiseCoeffs._1,
           `Noise G 1` = biModule.color0.noiseCoeffs._2,
           `Noise B 1` = biModule.color0.noiseCoeffs._3,
-          `Shading R 1` = biModule.color0.shadingCoeffs._1,
-          `Shading G 1` = biModule.color0.shadingCoeffs._2,
-          `Shading B 1` = biModule.color0.shadingCoeffs._3,
           `Color 2` = JsColors.colorIntToJsString( biModule.color1.baseColor.rgbInt ),
           `Alpha 2` = biModule.color1.baseColor.a,
-          `Scale x 2` = biModule.color1.noiseScalingX,
-          `Scale y 2` = biModule.color1.noiseScalingY,
+          `Scale x 2` = biModule.color1.noiseScalingX * 50,
+          `Scale y 2` = biModule.color1.noiseScalingY * 50,
           `Noise R 2` = biModule.color1.noiseCoeffs._1,
           `Noise G 2` = biModule.color1.noiseCoeffs._2,
-          `Noise B 2` = biModule.color1.noiseCoeffs._3,
-          `Shading R 2` = biModule.color1.shadingCoeffs._1,
-          `Shading G 2` = biModule.color1.shadingCoeffs._2,
-          `Shading B 2` = biModule.color1.shadingCoeffs._3
+          `Noise B 2` = biModule.color1.noiseCoeffs._3
         )
     }
 
@@ -157,18 +147,6 @@ case class Config (
   var `Noise B 1`: Float = 0,
 
   @(JSExport @field)
-  var `Shading R 1`: Float = 0,
-
-  @(JSExport @field)
-  var `Shading G 1`: Float = 0,
-
-  @(JSExport @field)
-  var `Shading B 1`: Float = 0,
-
-  @(JSExport @field)
-  var `Bicolor`: Boolean = true,
-
-  @(JSExport @field)
   var `Color 2`: String = JsColors.colorIntToJsString( Colors.BLACK ),
 
   @(JSExport @field)
@@ -190,73 +168,85 @@ case class Config (
   var `Noise B 2`: Float = 0,
 
   @(JSExport @field)
-  var `Shading R 2`: Float = 0,
-
-  @(JSExport @field)
-  var `Shading G 2`: Float = 0,
-
-  @(JSExport @field)
-  var `Shading B 2`: Float = 0,
-
-  @(JSExport @field)
   var `Highlighting`: String = "None",
 
   @(JSExport @field)
   var `Cubic`: Boolean = false,
 
   @(JSExport @field)
+  var `Shade center`: Boolean = true,
+
+  @(JSExport @field)
   var `Shader`: String = ShadersPack.HeadacheMachine2.name
 ) {
 
-  def safeBorderSize = math.max( 0.0, math.min( 16.0, `Border size` ) ).toFloat
+  private def toDynamicColor0 = DynamicColor(
+      SimpleColor(JsColors.jsStringToRgbaColor( `Color 1`, `Alpha 1` )),
+      `Scale x 1` / 50f,
+      `Scale y 1` / 50f,
+      (`Noise R 1`, `Noise G 1`, `Noise B 1`)
+    )
+
+  private def toDynamicColor1 = DynamicColor(
+      SimpleColor(JsColors.jsStringToRgbaColor( `Color 2`, `Alpha 2` )),
+      `Scale x 2` / 50f,
+      `Scale y 2` / 50f,
+      (`Noise R 2`, `Noise G 2`, `Noise B 2`)
+    )
+
+  private def toBorder =
+    if (`Border size` == 0) NoFX
+    else Border(
+      SimpleColor( (`Border alpha`*255).toInt + 256 * JsColors.jsStringToColor( `Border color` ) ),
+      `Border size`
+    )
 
   def toShader: ShaderModule[LivingHexagon] = {
-    if(`Bicolor`) {
+    if(`Blending rate` != 0) {
       BackgroundShaderBi(
         "customBi",
-        DynamicColor(
-          SimpleColor(JsColors.jsStringToRgbaColor( `Color 1` )),
-          `Scale x 1`,
-          `Scale y 1`,
-          (`Noise R 1`, `Noise G 1`, `Noise B 1`),
-          shadingCoeffs = (`Shading R 1`, `Shading B 1`, `Shading B 1`)
-        ),
-        DynamicColor(
-          SimpleColor(JsColors.jsStringToRgbaColor( `Color 2` )),
-          `Scale x 2`,
-          `Scale y 2`,
-          (`Noise R 2`, `Noise G 2`, `Noise B 2`),
-          shadingCoeffs = (`Shading R 2`, `Shading B 2`, `Shading B 2`)
-        ),
-        border =
-          if (`Border size` == 0) NoFX
-          else Border(
-            SimpleColor( (`Border alpha`*255).toInt + 256 * JsColors.jsStringToColor( `Border color` ) ),
-            `Border size`
-          ),
+        toDynamicColor0,
+        toDynamicColor1,
+        border = toBorder,
         cubic = `Cubic`,
-        blendingRate = `Blending rate`
+        blendingRate = `Blending rate`,
+        centerShading = `Shade center`
       )
     } else {
       BackgroundShaderMono(
         "customMono",
-        DynamicColor(
-          SimpleColor(JsColors.jsStringToRgbaColor( `Color 1` )),
-          `Scale x 1`,
-          `Scale y 1`,
-          (`Noise R 1`, `Noise G 1`, `Noise B 1`),
-          shadingCoeffs = (`Shading R 1`, `Shading B 1`, `Shading B 1`)
-        ),
-        border =
-          if (`Border size` == 0) NoFX
-          else Border(
-            SimpleColor( (`Border alpha`*255).toInt + 256 * JsColors.jsStringToColor( `Border color` ) ),
-            `Border size`
-          ),
+        toDynamicColor0,
+        border = toBorder,
         cubic = `Cubic`,
-        blendingRate = `Blending rate`
+        centerShading = `Shade center`
       )
     }
+  }
+
+  def apply( otherConfig: Config ): Unit = {
+    `Background color` = otherConfig.`Background color`
+    `Blending rate` = otherConfig.`Blending rate`
+    `Border size` = otherConfig.`Border size`
+    `Border color` = otherConfig.`Border color`
+    `Border alpha` = otherConfig.`Border alpha`
+    `Color 1` = otherConfig.`Color 1`
+    `Alpha 1` = otherConfig.`Alpha 1`
+    `Scale x 1` = otherConfig.`Scale x 1`
+    `Scale y 1` = otherConfig.`Scale y 1`
+    `Noise R 1` = otherConfig.`Noise R 1`
+    `Noise G 1` = otherConfig.`Noise G 1`
+    `Noise B 1` = otherConfig.`Noise B 1`
+    `Color 2` = otherConfig.`Color 2`
+    `Alpha 2` = otherConfig.`Alpha 2`
+    `Scale x 2` = otherConfig.`Scale x 2`
+    `Scale y 2` = otherConfig.`Scale y 2`
+    `Noise R 2` = otherConfig.`Noise R 2`
+    `Noise G 2` = otherConfig.`Noise G 2`
+    `Noise B 2` = otherConfig.`Noise B 2`
+    `Highlighting` = otherConfig.`Highlighting`
+    `Cubic` = otherConfig.`Cubic`
+    `Shade center` = otherConfig.`Shade center`
+    `Shader` = otherConfig.`Shader`
   }
 
 }

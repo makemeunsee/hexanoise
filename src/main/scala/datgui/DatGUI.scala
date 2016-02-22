@@ -7,15 +7,23 @@ import scala.scalajs.js
  */
 
 object DatGUI {
-  def clear(datGUI: DatGUI): Unit = {
-    val length =
-      datGUI.asInstanceOf[js.Dynamic]
-        .selectDynamic("__controllers")
-        .selectDynamic("length")
-        .asInstanceOf[Int]
+  def updateDisplay(datGUI: DatGUI): Unit = {
+    val controllers = datGUI.asInstanceOf[js.Dynamic]
+      .selectDynamic("__controllers")
 
-    (0 until length) foreach { i =>
-      datGUI.remove( datGUI.asInstanceOf[js.Dynamic].selectDynamic("__controllers").selectDynamic( "0" ).asInstanceOf[DatController[_]] )
+    val controllersLength = controllers
+      .selectDynamic("length")
+      .asInstanceOf[Int]
+
+    (0 until controllersLength) foreach { i =>
+      controllers.selectDynamic( s"$i" ).asInstanceOf[DatController[_]].updateDisplay()
+    }
+
+    val folders = datGUI.asInstanceOf[js.Dynamic]
+      .selectDynamic("__folders")
+
+    for( key <- js.Object.keys( folders.asInstanceOf[js.Object] ) ) {
+      updateDisplay( folders.selectDynamic( key ).asInstanceOf[DatGUI] )
     }
   }
 }

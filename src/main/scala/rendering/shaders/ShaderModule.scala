@@ -154,15 +154,34 @@ trait ShaderModule[H <: Hexagon] extends Shader {
 
   def name: String
 
-  def commonUniforms = Map("u_time" -> "f",
+  def commonVertexUniforms = Map(
+    "u_time" -> "f",
+    "u_blendingRate" -> "f",
     "u_xDisplacement" -> "f",
     "u_yDisplacement" -> "f"
   )
 
-  def uniforms: Map[String, String]
+  def vertexUniforms: Map[String, String] = Map.empty
+
+  def commonFragmentUniforms = border match {
+    case Border( color, thickness ) =>
+      Map(
+        "u_borderRed" -> "f",
+        "u_borderGreen" -> "f",
+        "u_borderBlue" -> "f",
+        "u_borderAlpha" -> "f",
+        "u_borderThickness" -> "f"
+      )
+    case _ =>
+      Map.empty
+  }
+
+  def fragmentUniforms: Map[String, String] = Map.empty
+
+  private def allUniforms = commonVertexUniforms ++ vertexUniforms ++ commonFragmentUniforms ++ fragmentUniforms
 
   private def defineUniforms( mesh: Mesh ): Unit = {
-    val customUniforms = ( commonUniforms ++ uniforms ).foldLeft( js.Dynamic.literal() ) {
+    val customUniforms = allUniforms.foldLeft( js.Dynamic.literal() ) {
       case (dynamic, (key, value)) =>
         dynamic.updateDynamic( key )( js.Dynamic.literal(
             "type" -> value,
@@ -174,7 +193,22 @@ trait ShaderModule[H <: Hexagon] extends Shader {
   }
   
   protected def loadUniforms( mesh: Mesh ): Unit
-  
+
+  private def loadCommonUniforms( mesh: Mesh ): Unit = {
+    uniformLoader( mesh )( "u_blendingRate", blendingRate )
+    val loader = uniformLoader( mesh )
+    border match {
+      case Border( color, thickness ) =>
+        loader( "u_borderRed", color.r )
+        loader( "u_borderGreen", color.g )
+        loader( "u_borderBlue", color.b )
+        loader( "u_borderAlpha", color.a )
+        loader( "u_borderThickness", thickness )
+      case _ =>
+        ()
+    }
+  }
+
   private def loadShaders( mesh: Mesh ): Boolean = {
     val shaderMaterial = mesh.material.asInstanceOf[ShaderMaterial]
     
@@ -189,24 +223,21 @@ trait ShaderModule[H <: Hexagon] extends Shader {
 
   def update( mesh: Mesh ): Unit = {
     if ( loadShaders( mesh ) ) {
+      println("recompiled shaders")
       defineUniforms( mesh )
       mesh.material.asInstanceOf[ShaderMaterial].needsUpdate = true
     }
+    loadCommonUniforms( mesh )
     loadUniforms( mesh )
   }
 
   // shaders related code
 
-  def copy(name: String = name,
-           blendingRate: Float = blendingRate,
-           border: BorderMode = border,
-           highlighting: HighlightMode = highlighting,
-           cubic: Boolean = cubic): ShaderModule[H]
-
   def blendingRate: Float
   def border: BorderMode
   def highlighting: HighlightMode
   def cubic: Boolean
+  def centerShading: Boolean
 
   private val twoPi = 2*math.Pi
   private val twoPiBy1000 = twoPi / 1000f
@@ -235,10 +266,14 @@ trait ShaderModule[H <: Hexagon] extends Shader {
 
   def applyColorShading: String
 
-  private def glslUniformsDeclaration: String = ( commonUniforms ++ uniforms )
+  private def glslUniformsDeclaration( uniforms: Map[String, String] ): String = uniforms
     .map { p => ( p._1, shortToType(p._2) ) }
     .map { case (key, value) => s"uniform $value $key;" }
     .mkString("\n")
+
+  private def glslVertexUniformsDeclaration = glslUniformsDeclaration( commonVertexUniforms ++ vertexUniforms )
+
+  private def glslFragmentUniformsDeclaration = glslUniformsDeclaration( commonFragmentUniforms ++ fragmentUniforms )
 
   private def vertexShaderRaw = s"""#ifdef GL_ES
 #extension GL_OES_standard_derivatives : enable
@@ -252,7 +287,7 @@ varying float v_centerFlag;
 attribute float a_tier;
 varying float v_tier;
 
-$glslUniformsDeclaration
+$glslVertexUniformsDeclaration
 
 varying vec4 v_color;
 
@@ -271,9 +306,9 @@ vec4 noised3D(vec2 position2d, vec4 color, vec3 noise, vec2 scaling, float z) {
                 1.0 );
 }
 
-vec4 shaded3D(vec2 position2d, vec4 color, vec3 noise, vec3 shading, vec2 scaling, float z) {
+vec4 shaded3D(vec2 position2d, vec4 color, vec3 noise, vec2 scaling, float z) {
   vec4 noisedColor = noised3D( position2d, color, noise, scaling, z );
-  return clamp( vec4( noisedColor.rgb + shading, noisedColor.a ),
+  return clamp( vec4( noisedColor.rgb ${if (centerShading) "- 0.1" else ""}, noisedColor.a ),
                 0.0,
                 1.0 );
 }
@@ -282,7 +317,7 @@ void main()
 {
   v_centerFlag = a_centerFlag;
   v_tier = a_tier;
-  float blendAlpha = sin($blendingRate * u_time / 2000.0) / 2.0 + 0.5;
+  float blendAlpha = cos(u_blendingRate * u_time / 2000.0) / 2.0 + 0.5;
 
   vec2 center2d = a_center + vec2(u_xDisplacement, u_yDisplacement);
 
@@ -293,13 +328,13 @@ $highlight
   gl_Position = modelViewMatrix * projectionMatrix * vec4(position2d, 0.0, 1.0);
 }"""
 
-  protected def withEdge(color: Color, thickness: Float) = s"""float f = edgeFactor($thickness, v_centerFlag);
-  gl_FragColor = mix(vec4(${color.r}, ${color.g}, ${color.b}, ${color.a} * tierColor.a), tierColor, f);"""
+  protected def withEdge = s"""float f = edgeFactor(u_borderThickness, v_centerFlag);
+  gl_FragColor = mix(vec4(u_borderRed, u_borderGreen, u_borderBlue, u_borderAlpha * tierColor.a), tierColor, f);"""
 
   protected def edgeLess ="""gl_FragColor = tierColor;"""
 
   private def applyEdge = border match {
-    case Border(color, thickness) => withEdge(color, thickness)
+    case Border(_, _) => withEdge
     case _ => edgeLess
   }
 
@@ -316,6 +351,8 @@ $highlight
   private def fragmentShaderRaw = s"""#ifdef GL_ES
 #extension GL_OES_standard_derivatives : enable
 #endif
+
+$glslFragmentUniformsDeclaration
 
 varying float v_centerFlag;
 varying float v_tier;
@@ -343,15 +380,16 @@ void main()
 }
 
 trait MonocolorShaderModule[H <: Hexagon] extends ShaderModule[H] {
+
+  val blendingRate = 0f
   
   def color: DynamicColor
 
   val colors = Seq(color)
-  
-  def uniforms: Map[String, String] = Map(
+
+  override def vertexUniforms: Map[String, String] = Map(
     "u_color0" -> "v4",
     "u_noise0" -> "v3",
-    "u_shading0" -> "v3",
     "u_scaling0" -> "v2"
     )
 
@@ -370,12 +408,6 @@ trait MonocolorShaderModule[H <: Hexagon] extends ShaderModule[H] {
       noise0._2,
       noise0._3
     ) )
-    val shading0 = color.shadingCoeffs
-    loader( "u_shading0", new Vector3(
-      shading0._1,
-      shading0._2,
-      shading0._3
-    ) )
     loader( "u_scaling0", new Vector2(
       color.noiseScalingX,
       color.noiseScalingY
@@ -388,13 +420,13 @@ trait MonocolorShaderModule[H <: Hexagon] extends ShaderModule[H] {
     case Color3D(rate) =>
       s"""|  float colorLife = u_time / 1000.0 * $rate;
           |  if ( a_centerFlag == 1.0 ) {
-          |    v_color = shaded3D(center2d, u_color0, u_noise0, u_shading0, u_scaling0, colorLife);
+          |    v_color = shaded3D(center2d, u_color0, u_noise0, u_scaling0, colorLife);
           |  } else {
           |    v_color = noised3D(center2d, u_color0, u_noise0, u_scaling0, colorLife);
           |  }""".stripMargin
     case NoFX =>
       s"""|  if ( a_centerFlag == 1.0 ) {
-          |    v_color = shaded3D(center2d, u_color0, u_noise0, u_shading0, u_scaling0, 4.44);
+          |    v_color = shaded3D(center2d, u_color0, u_noise0, u_scaling0, 4.44);
           |  } else {
           |    v_color = noised3D(center2d, u_color0, u_noise0, u_scaling0, 4.44);
           |  }""".stripMargin
@@ -409,14 +441,12 @@ trait BicolorShaderModule[H <: Hexagon] extends ShaderModule[H] {
 
   val colors = Seq(color0, color1)
 
-  def uniforms: Map[String, String] = Map(
+  override def vertexUniforms: Map[String, String] = Map(
     "u_color0" -> "v4",
     "u_noise0" -> "v3",
-    "u_shading0" -> "v3",
     "u_scaling0" -> "v2",
     "u_color1" -> "v4",
     "u_noise1" -> "v3",
-    "u_shading1" -> "v3",
     "u_scaling1" -> "v2"
     )
 
@@ -435,12 +465,6 @@ trait BicolorShaderModule[H <: Hexagon] extends ShaderModule[H] {
       noise0._2,
       noise0._3
     ) )
-    val shading0 = color0.shadingCoeffs
-    loader( "u_shading0", new Vector3(
-      shading0._1,
-      shading0._2,
-      shading0._3
-    ) )
     loader( "u_scaling0", new Vector2(
       color0.noiseScalingX,
       color0.noiseScalingY
@@ -458,12 +482,6 @@ trait BicolorShaderModule[H <: Hexagon] extends ShaderModule[H] {
       noise1._2,
       noise1._3
     ) )
-    val shading1 = color1.shadingCoeffs
-    loader( "u_shading1", new Vector3(
-      shading1._1,
-      shading1._2,
-      shading1._3
-    ) )
     loader( "u_scaling1", new Vector2(
       color1.noiseScalingX,
       color1.noiseScalingY
@@ -474,8 +492,8 @@ trait BicolorShaderModule[H <: Hexagon] extends ShaderModule[H] {
       """  vec4 color0;
         |  vec4 color1;
         |  if ( a_centerFlag == 1.0 ) {
-        |    color0 = shaded3D(center2d, u_color0, u_noise0, u_shading0, u_scaling0, 4.44);
-        |    color1 = shaded3D(center2d, u_color1, u_noise1, u_shading1, u_scaling1, 4.44);
+        |    color0 = shaded3D(center2d, u_color0, u_noise0, u_scaling0, 4.44);
+        |    color1 = shaded3D(center2d, u_color1, u_noise1, u_scaling1, 4.44);
         |  } else {
         |    color0 = noised3D(center2d, u_color0, u_noise0, u_scaling0, 4.44);
         |    color1 = noised3D(center2d, u_color1, u_noise1, u_scaling1, 4.44);
