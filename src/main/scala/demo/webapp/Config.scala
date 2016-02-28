@@ -77,34 +77,70 @@ object Config {
         richConfig1.copy(
           `Color 1` = JsColors.colorIntToJsString( monoModule.color.baseColor.rgbInt ),
           `Alpha 1` = monoModule.color.baseColor.a,
-          `Scale x 1` = monoModule.color.noiseScalingX * 50,
-          `Scale y 1` = monoModule.color.noiseScalingY * 50,
-          `Noise R 1` = monoModule.color.noiseCoeffs._1,
-          `Noise G 1` = monoModule.color.noiseCoeffs._2,
-          `Noise B 1` = monoModule.color.noiseCoeffs._3
+          `Scale x 1` = configScaleFromNoiseScale( monoModule.color.noiseScalingX),
+          `Scale y 1` = configScaleFromNoiseScale( monoModule.color.noiseScalingY),
+          `Noise R 1` = configNoiseFactorFromNoiseFactor( monoModule.color.noiseCoeffs._1 ),
+          `Noise G 1` = configNoiseFactorFromNoiseFactor( monoModule.color.noiseCoeffs._2 ),
+          `Noise B 1` = configNoiseFactorFromNoiseFactor( monoModule.color.noiseCoeffs._3 )
         )
       case biModule: BicolorShaderModule[_] =>
         richConfig1.copy(
           `Color 1` = JsColors.colorIntToJsString( biModule.color0.baseColor.rgbInt ),
           `Alpha 1` = biModule.color0.baseColor.a,
-          `Scale x 1` = biModule.color0.noiseScalingX * 50,
-          `Scale y 1` = biModule.color0.noiseScalingY * 50,
-          `Noise R 1` = biModule.color0.noiseCoeffs._1,
-          `Noise G 1` = biModule.color0.noiseCoeffs._2,
-          `Noise B 1` = biModule.color0.noiseCoeffs._3,
+          `Scale x 1` = configScaleFromNoiseScale( biModule.color0.noiseScalingX),
+          `Scale y 1` = configScaleFromNoiseScale( biModule.color0.noiseScalingY),
+          `Noise R 1` = configNoiseFactorFromNoiseFactor( biModule.color0.noiseCoeffs._1 ),
+          `Noise G 1` = configNoiseFactorFromNoiseFactor( biModule.color0.noiseCoeffs._2 ),
+          `Noise B 1` = configNoiseFactorFromNoiseFactor( biModule.color0.noiseCoeffs._3 ),
           `Color 2` = JsColors.colorIntToJsString( biModule.color1.baseColor.rgbInt ),
           `Alpha 2` = biModule.color1.baseColor.a,
-          `Scale x 2` = biModule.color1.noiseScalingX * 50,
-          `Scale y 2` = biModule.color1.noiseScalingY * 50,
-          `Noise R 2` = biModule.color1.noiseCoeffs._1,
-          `Noise G 2` = biModule.color1.noiseCoeffs._2,
-          `Noise B 2` = biModule.color1.noiseCoeffs._3
+          `Scale x 2` = configScaleFromNoiseScale( biModule.color1.noiseScalingX),
+          `Scale y 2` = configScaleFromNoiseScale( biModule.color1.noiseScalingY),
+          `Noise R 2` = configNoiseFactorFromNoiseFactor( biModule.color1.noiseCoeffs._1 ),
+          `Noise G 2` = configNoiseFactorFromNoiseFactor( biModule.color1.noiseCoeffs._2 ),
+          `Noise B 2` = configNoiseFactorFromNoiseFactor( biModule.color1.noiseCoeffs._3 )
         )
     }
 
     richConfig2
   }
+
+  private def noiseScaleFromConfigScale(coeff: Int): Float = {
+    math.pow(2, coeff).toFloat / 100f
+  }
+
+  private def configScaleFromNoiseScale(coeff: Float): Int = {
+    ( math.log(coeff * 100) / math.log(2) ).toInt
+  }
+
+  private def noiseFactorFromConfigNoiseFactor(coeff: Int): Float = math.signum(coeff) match {
+    case -1 =>
+      math.pow( 2.5, ( -coeff - 1 ).toFloat / 4f ).toFloat
+    case 0 =>
+      0
+    case 1 =>
+      math.pow( 2.5, ( coeff - 1 ).toFloat / 4f ).toFloat
+  }
+
+  private def configNoiseFactorFromNoiseFactor(coeff: Float): Int = math.signum(coeff) match {
+    case -1 =>
+      - 4 * (math.log(-coeff) / math.log(2.5)).toInt - 1
+    case 0 =>
+      0
+    case 1 =>
+      4 * (math.log(coeff) / math.log(2.5)).toInt + 1
+  }
+
+  (0 to 100)
+    .map(_.toFloat)
+    .map(_ / 10f)
+    .foreach( x => println(x, noiseFactorFromConfigNoiseFactor(configNoiseFactorFromNoiseFactor(x))))
+
+  (0 to 100)
+    .foreach( x => println(x, configNoiseFactorFromNoiseFactor(noiseFactorFromConfigNoiseFactor(x))))
 }
+
+import Config.{noiseScaleFromConfigScale, noiseFactorFromConfigNoiseFactor}
 
 @JSExport
 case class Config (
@@ -132,19 +168,19 @@ case class Config (
   var `Alpha 1`: Float = 1.0f,
 
   @(JSExport @field)
-  var `Scale x 1`: Float = 0,
+  var `Scale x 1`: Int = 0,
 
   @(JSExport @field)
-  var `Scale y 1`: Float = 0,
+  var `Scale y 1`: Int = 0,
 
   @(JSExport @field)
-  var `Noise R 1`: Float = 0,
+  var `Noise R 1`: Int = 0,
 
   @(JSExport @field)
-  var `Noise G 1`: Float = 0,
+  var `Noise G 1`: Int = 0,
 
   @(JSExport @field)
-  var `Noise B 1`: Float = 0,
+  var `Noise B 1`: Int = 0,
 
   @(JSExport @field)
   var `Color 2`: String = JsColors.colorIntToJsString( Colors.BLACK ),
@@ -153,19 +189,19 @@ case class Config (
   var `Alpha 2`: Float = 1.0f,
 
   @(JSExport @field)
-  var `Scale x 2`: Float = 0,
+  var `Scale x 2`: Int = 0,
 
   @(JSExport @field)
-  var `Scale y 2`: Float = 0,
+  var `Scale y 2`: Int = 0,
 
   @(JSExport @field)
-  var `Noise R 2`: Float = 0,
+  var `Noise R 2`: Int = 0,
 
   @(JSExport @field)
-  var `Noise G 2`: Float = 0,
+  var `Noise G 2`: Int = 0,
 
   @(JSExport @field)
-  var `Noise B 2`: Float = 0,
+  var `Noise B 2`: Int = 0,
 
   @(JSExport @field)
   var `Highlighting`: String = "None",
@@ -182,16 +218,16 @@ case class Config (
 
   private def toDynamicColor0 = DynamicColor(
       SimpleColor(JsColors.jsStringToRgbaColor( `Color 1`, `Alpha 1` )),
-      `Scale x 1` / 50f,
-      `Scale y 1` / 50f,
-      (`Noise R 1`, `Noise G 1`, `Noise B 1`)
+      noiseScaleFromConfigScale(`Scale x 1`),
+      noiseScaleFromConfigScale(`Scale y 1`),
+      ( noiseFactorFromConfigNoiseFactor( `Noise R 1` ), noiseFactorFromConfigNoiseFactor( `Noise G 1` ), noiseFactorFromConfigNoiseFactor( `Noise B 1` ) )
     )
 
   private def toDynamicColor1 = DynamicColor(
       SimpleColor(JsColors.jsStringToRgbaColor( `Color 2`, `Alpha 2` )),
-      `Scale x 2` / 50f,
-      `Scale y 2` / 50f,
-      (`Noise R 2`, `Noise G 2`, `Noise B 2`)
+      noiseScaleFromConfigScale(`Scale x 2`),
+      noiseScaleFromConfigScale(`Scale y 2`),
+      ( noiseFactorFromConfigNoiseFactor( `Noise R 2` ), noiseFactorFromConfigNoiseFactor( `Noise G 2` ), noiseFactorFromConfigNoiseFactor( `Noise B 2` ) )
     )
 
   private def toBorder =

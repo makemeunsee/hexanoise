@@ -36,17 +36,18 @@ object ScramblMain extends JSApp {
       .map(array => (array(0), array(1)))
       .toMap
 
-    val config = new Config()
-
-    config.`Background color` = args
-      .get("bg")
-      .map("#"+_)
-      .getOrElse(config.`Background color`)
-
-    config.`Shader` = args
+    val shaderName = args
       .get("shader")
       .filter( ShadersPack.values.map(_.name).toSet.contains )
-      .getOrElse(config.`Shader`)
+      .getOrElse(Config().`Shader`)
+
+    val bg = args
+      .get("bg")
+      .map("#"+_)
+      .getOrElse(Config().`Background color`)
+
+    val config = Config.loadShader( ShadersPack( shaderName ), bg )
+    config.`Shader` = shaderName
 
     val maxHexagons = args
       .get("maxhexas")
@@ -147,23 +148,23 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
       .onChange { updateShaderFct }
 
     color1Folder
-      .addRange( jsCfg, "Scale x 1", 0f, 100f ).step( 1f )
+      .addRange( jsCfg, "Scale x 1", 0, 7f ).step( 1 )
       .onChange { updateShaderFct }
 
     color1Folder
-      .addRange( jsCfg, "Scale y 1", 0f, 100f ).step( 1f )
+      .addRange( jsCfg, "Scale y 1", 0, 7 ).step( 1 )
       .onChange { updateShaderFct }
 
     color1Folder
-      .addRange( jsCfg, "Noise R 1", -20f, 20f ).step( 0.2f )
+      .addRange( jsCfg, "Noise R 1", -20, 20 ).step( 1 )
       .onChange { updateShaderFct }
 
     color1Folder
-      .addRange( jsCfg, "Noise G 1", -20f, 20f ).step( 0.2f )
+      .addRange( jsCfg, "Noise G 1", -20, 20 ).step( 1 )
       .onChange { updateShaderFct }
 
     color1Folder
-      .addRange( jsCfg, "Noise B 1", -20f, 20f ).step( 0.2f )
+      .addRange( jsCfg, "Noise B 1", -20, 20 ).step( 1 )
       .onChange { updateShaderFct }
 
     color1Folder.open()
@@ -177,23 +178,23 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
       .onChange { updateShaderFct }
 
     color2Folder
-      .addRange( jsCfg, "Scale x 2", 0f, 100f ).step( 1f )
+      .addRange( jsCfg, "Scale x 2", 0, 7 ).step( 1 )
       .onChange { updateShaderFct }
 
     color2Folder
-      .addRange( jsCfg, "Scale y 2", 0f, 100f ).step( 1f )
+      .addRange( jsCfg, "Scale y 2", 0, 7 ).step( 1 )
       .onChange { updateShaderFct }
 
     color2Folder
-      .addRange( jsCfg, "Noise R 2", -20f, 20f ).step( 0.2f )
+      .addRange( jsCfg, "Noise R 2", -20, 20 ).step( 1 )
       .onChange { updateShaderFct }
 
     color2Folder
-      .addRange( jsCfg, "Noise G 2", -20f, 20f ).step( 0.2f )
+      .addRange( jsCfg, "Noise G 2", -20, 20 ).step( 1 )
       .onChange { updateShaderFct }
 
     color2Folder
-      .addRange( jsCfg, "Noise B 2", -20f, 20f ).step( 0.2f )
+      .addRange( jsCfg, "Noise B 2", -20, 20 ).step( 1 )
       .onChange { updateShaderFct }
 
     color2Folder.open()

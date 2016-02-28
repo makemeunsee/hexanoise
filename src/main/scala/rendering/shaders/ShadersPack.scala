@@ -29,7 +29,7 @@ object ShadersPack {
   }
 
   val Grid = new BackgroundShaderMono("Grid",
-    DynamicColor(SimpleColor(0xffffffff), 0, 0, (0f,0f,0f), 0, 0),
+    DynamicColor(SimpleColor(0xffffffff), 1, 1, (0f,0f,0f), 0, 0),
     Border(SimpleColor(0x0),1f),
     centerShading = false)
 
