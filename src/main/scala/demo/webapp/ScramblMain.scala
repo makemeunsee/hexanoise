@@ -39,12 +39,12 @@ object ScramblMain extends JSApp {
     val shaderName = args
       .get("shader")
       .filter( ShadersPack.values.map(_.name).toSet.contains )
-      .getOrElse(Config().`Shader`)
+      .getOrElse(Config.defaultShaderName)
 
     val bg = args
       .get("bg")
       .map("#"+_)
-      .getOrElse(Config().`Background color`)
+      .getOrElse(Config.defaultBackgroundColor)
 
     val config = Config.loadShader( ShadersPack( shaderName ), bg )
     config.`Shader` = shaderName
@@ -113,7 +113,10 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
         ( scene.setBackgroundColor _ ).tupled(color)
       }
 
-    def updateShaderFct[T]: T => Unit = _ => scene.setShader( config.toShader )
+    def updateShaderFct[T]: T => Unit = _ => {
+      println(config)
+      scene.setShader( config.toShader )
+    }
 
     commonFolder
       .addRange( jsCfg, "Blending rate", 0.0f, 10f ).step( 0.5f )
@@ -121,6 +124,10 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
 
     commonFolder
       .addBoolean( jsCfg, "Cubic" )
+      .onChange { updateShaderFct }
+
+    commonFolder
+      .addBoolean( jsCfg, "Shade center" )
       .onChange { updateShaderFct }
 
     commonFolder.open()

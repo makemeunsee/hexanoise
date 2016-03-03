@@ -39,6 +39,9 @@ object Config {
 
   val higlightings = Seq("Pulsating", "Blending", "None")
 
+  val defaultBackgroundColor: String = JsColors.colorIntToJsString( Colors.BLACK )
+  val defaultShaderName: String = ShadersPack.HeadacheMachine2.name
+
   def loadShader(module: ShaderModule[_], bgColor: String, name: String = "custom" ): Config = {
     val baseConfig = Config().copy(
       `Blending rate` = module.blendingRate,
@@ -115,38 +118,30 @@ object Config {
 
   private def noiseFactorFromConfigNoiseFactor(coeff: Int): Float = math.signum(coeff) match {
     case -1 =>
-      math.pow( 2.5, ( -coeff - 1 ).toFloat / 4f ).toFloat
+      - math.pow( 4.5, ( -coeff - 2.5 ).toFloat / 4f ).toFloat / 10f
     case 0 =>
       0
     case 1 =>
-      math.pow( 2.5, ( coeff - 1 ).toFloat / 4f ).toFloat
+      math.pow( 4.5, ( coeff - 2.5 ).toFloat / 4f ).toFloat / 10f
   }
 
   private def configNoiseFactorFromNoiseFactor(coeff: Float): Int = math.signum(coeff) match {
     case -1 =>
-      - 4 * (math.log(-coeff) / math.log(2.5)).toInt - 1
+      - (4 * (math.log(10 * -coeff) / math.log(4.5)) + 2.5).toInt
     case 0 =>
       0
     case 1 =>
-      4 * (math.log(coeff) / math.log(2.5)).toInt + 1
+      (4 * (math.log(10 * coeff) / math.log(4.5)) + 2.5).toInt
   }
-
-  (0 to 100)
-    .map(_.toFloat)
-    .map(_ / 10f)
-    .foreach( x => println(x, noiseFactorFromConfigNoiseFactor(configNoiseFactorFromNoiseFactor(x))))
-
-  (0 to 100)
-    .foreach( x => println(x, configNoiseFactorFromNoiseFactor(noiseFactorFromConfigNoiseFactor(x))))
 }
 
-import Config.{noiseScaleFromConfigScale, noiseFactorFromConfigNoiseFactor}
+import Config.{noiseFactorFromConfigNoiseFactor, noiseScaleFromConfigScale}
 
 @JSExport
 case class Config (
 
   @(JSExport @field)
-  var `Background color`: String = JsColors.colorIntToJsString( Colors.BLACK ),
+  var `Background color`: String = Config.defaultBackgroundColor,
 
   // 0 < blending rate
   @(JSExport @field)
@@ -213,7 +208,7 @@ case class Config (
   var `Shade center`: Boolean = true,
 
   @(JSExport @field)
-  var `Shader`: String = ShadersPack.HeadacheMachine2.name
+  var `Shader`: String = Config.defaultShaderName
 ) {
 
   private def toDynamicColor0 = DynamicColor(
