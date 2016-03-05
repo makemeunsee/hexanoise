@@ -80,6 +80,7 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
     val borderFolder = datGUI.addFolder("Border")
     val color1Folder = datGUI.addFolder("Color 1")
     val color2Folder = datGUI.addFolder("Color 2")
+    val colorModeFolder = datGUI.addFolder("Color mode")
 
     commonFolder
       .addList( jsCfg, "Shader", ( ShadersPack.values.map(_.name) :+ "customBi" :+ "customMono" ).toJSArray )
@@ -101,6 +102,12 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
           color2Folder.close()
         } else {
           color2Folder.open()
+        }
+
+        if( config.`Blending rate` > 1 || config.`Color mode` == Config.noColorMode ) {
+          colorModeFolder.close()
+        } else {
+          colorModeFolder.open()
         }
 
         ()
@@ -144,7 +151,9 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
       .addRange( jsCfg, "Border alpha", 0.0f, 1f ).step( 0.05f )
       .onChange { updateShaderFct }
 
-    borderFolder.open()
+    if( config.`Border size` > 0 ) {
+      borderFolder.open()
+    }
 
     color1Folder
       .addColor( jsCfg, "Color 1" )
@@ -204,7 +213,21 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
       .addRange( jsCfg, "Noise B 2", -20, 20 ).step( 1 )
       .onChange { updateShaderFct }
 
-    color2Folder.open()
+    if( config.`Blending rate` > 1 ) {
+      color2Folder.open()
+    }
+
+    colorModeFolder
+      .addList( jsCfg, "Color mode", Config.colorModes.toJSArray )
+      .onChange { updateShaderFct }
+
+    colorModeFolder
+      .addRange( jsCfg, "Rate", 1, 30 ).step( 1 )
+      .onChange { updateShaderFct }
+
+    if( config.`Blending rate` == 0 && config.`Color mode` != Config.noColorMode ) {
+      colorModeFolder.open()
+    }
 
     datGUI.open()
   }

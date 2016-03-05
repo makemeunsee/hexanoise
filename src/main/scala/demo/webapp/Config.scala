@@ -37,6 +37,10 @@ object Config {
                     |  }
                     |}""".stripMargin
 
+  val noColorMode: String = "NoFX"
+  val colorMode3d: String = "Color3D"
+  val colorModes: Seq[String] = Seq(noColorMode, colorMode3d)
+
   val higlightings = Seq("Pulsating", "Blending", "None")
 
   val defaultBackgroundColor: String = JsColors.colorIntToJsString( Colors.BLACK )
@@ -77,7 +81,13 @@ object Config {
 
     val richConfig2 = module match {
       case monoModule: MonocolorShaderModule[_] =>
-        richConfig1.copy(
+        val richConfig3 = monoModule.colorShading match {
+          case NoFX =>
+            richConfig1.copy(`Color mode` = Config.noColorMode, `Rate` = 0)
+          case Color3D(rate) =>
+            richConfig1.copy(`Color mode` = Config.colorMode3d, `Rate` = (rate * 20).toInt)
+        }
+        richConfig3.copy(
           `Color 1` = JsColors.colorIntToJsString( monoModule.color.baseColor.rgbInt ),
           `Alpha 1` = monoModule.color.baseColor.a,
           `Scale x 1` = configScaleFromNoiseScale( monoModule.color.noiseScalingX),
@@ -101,7 +111,9 @@ object Config {
           `Scale y 2` = configScaleFromNoiseScale( biModule.color1.noiseScalingY),
           `Noise R 2` = configNoiseFactorFromNoiseFactor( biModule.color1.noiseCoeffs._1 ),
           `Noise G 2` = configNoiseFactorFromNoiseFactor( biModule.color1.noiseCoeffs._2 ),
-          `Noise B 2` = configNoiseFactorFromNoiseFactor( biModule.color1.noiseCoeffs._3 )
+          `Noise B 2` = configNoiseFactorFromNoiseFactor( biModule.color1.noiseCoeffs._3 ),
+          `Color mode` = Config.noColorMode,
+          `Rate` = 0
         )
     }
 
@@ -205,6 +217,12 @@ case class Config (
   var `Cubic`: Boolean = false,
 
   @(JSExport @field)
+  var `Color mode`: String = Config.noColorMode,
+
+  @(JSExport @field)
+  var `Rate`: Int = 10,
+
+  @(JSExport @field)
   var `Shade center`: Boolean = true,
 
   @(JSExport @field)
@@ -232,6 +250,13 @@ case class Config (
       `Border size`
     )
 
+  private def toColorMode = `Color mode` match {
+    case Config.colorMode3d =>
+      Color3D(`Rate`.toFloat / 20f)
+    case _ =>
+      NoFX
+  }
+
   def toShader: ShaderModule[LivingHexagon] = {
     if(`Blending rate` != 0) {
       BackgroundShaderBi(
@@ -249,7 +274,8 @@ case class Config (
         toDynamicColor0,
         border = toBorder,
         cubic = `Cubic`,
-        centerShading = `Shade center`
+        centerShading = `Shade center`,
+        colorShading = toColorMode
       )
     }
   }
@@ -278,6 +304,8 @@ case class Config (
     `Cubic` = otherConfig.`Cubic`
     `Shade center` = otherConfig.`Shade center`
     `Shader` = otherConfig.`Shader`
+    `Color mode` = otherConfig.`Color mode`
+    `Rate` = otherConfig.`Rate`
   }
 
 }
