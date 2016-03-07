@@ -6,7 +6,7 @@ package demo.webapp
 
 import org.scalajs.dom
 import org.scalajs.dom.screen
-import datgui.DatGUI
+import datgui.{DatController, DatGUI}
 import demo.JsColors
 import rendering.shaders.ShadersPack
 
@@ -62,6 +62,16 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
 
   private val datGUI = new DatGUI( js.Dynamic.literal( "load" -> JSON.parse( Config.presets ), "preset" -> "Default" ) )
 
+  private val commonFolder = datGUI.addFolder("...")
+  private val borderFolder = datGUI.addFolder("Border")
+  private val colorFolder = datGUI.addFolder("Color")
+  private val colorModeFolder = datGUI.addFolder("Color mode")
+  private val highlightingFolder = datGUI.addFolder("Effect")
+  private val highlightingSubFolder = highlightingFolder.addFolder( "Effect params" )
+
+
+  private var folders: Map[DatGUI, Seq[DatController[_]]] = Map.empty.withDefaultValue( Seq.empty )
+
   // ******************** actual three.js scene ********************
 
   @JSExport
@@ -75,12 +85,6 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
   def setupDatGUI( jsCfg: js.Dynamic ): Unit = {
 
     import js.JSConverters._
-
-    val commonFolder = datGUI.addFolder("...")
-    val borderFolder = datGUI.addFolder("Border")
-    val color1Folder = datGUI.addFolder("Color 1")
-    val color2Folder = datGUI.addFolder("Color 2")
-    val colorModeFolder = datGUI.addFolder("Color mode")
 
     commonFolder
       .addList( jsCfg, "Shader", ( ShadersPack.values.map(_.name) :+ "customBi" :+ "customMono" ).toJSArray )
@@ -98,16 +102,10 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
           borderFolder.open()
         }
 
-        if( config.`Blending rate` == 0 ) {
-          color2Folder.close()
+        if( config.`Highlighting` == Config.noHighlighting ) {
+          highlightingSubFolder.close()
         } else {
-          color2Folder.open()
-        }
-
-        if( config.`Blending rate` > 1 || config.`Color mode` == Config.noColorMode ) {
-          colorModeFolder.close()
-        } else {
-          colorModeFolder.open()
+          highlightingSubFolder.open()
         }
 
         ()
@@ -126,10 +124,6 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
     }
 
     commonFolder
-      .addRange( jsCfg, "Blending rate", 0.0f, 10f ).step( 0.5f )
-      .onChange { updateShaderFct }
-
-    commonFolder
       .addBoolean( jsCfg, "Cubic" )
       .onChange { updateShaderFct }
 
@@ -140,7 +134,7 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
     commonFolder.open()
 
     borderFolder
-      .addRange( jsCfg, "Border size", 0.0f, 8f ).step( 0.2f )
+      .addRange( jsCfg, "Border size", 0.0f, 3.5f ).step( 0.1f )
       .onChange { updateShaderFct }
 
     borderFolder
@@ -155,78 +149,77 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
       borderFolder.open()
     }
 
-    color1Folder
-      .addColor( jsCfg, "Color 1" )
+    colorFolder
+      .addColor( jsCfg, "Color" )
       .onChange { updateShaderFct }
 
-    color1Folder
-      .addRange( jsCfg, "Alpha 1", 0.0f, 1f ).step( 0.05f )
+    colorFolder
+      .addRange( jsCfg, "Alpha", 0.0f, 1f ).step( 0.05f )
       .onChange { updateShaderFct }
 
-    color1Folder
-      .addRange( jsCfg, "Scale x 1", 0, 7f ).step( 1 )
+    colorFolder
+      .addRange( jsCfg, "Scale x", 0, 7f ).step( 1 )
       .onChange { updateShaderFct }
 
-    color1Folder
-      .addRange( jsCfg, "Scale y 1", 0, 7 ).step( 1 )
+    colorFolder
+      .addRange( jsCfg, "Scale y", 0, 7 ).step( 1 )
       .onChange { updateShaderFct }
 
-    color1Folder
-      .addRange( jsCfg, "Noise R 1", -20, 20 ).step( 1 )
+    colorFolder
+      .addRange( jsCfg, "Noise R", -20, 20 ).step( 1 )
       .onChange { updateShaderFct }
 
-    color1Folder
-      .addRange( jsCfg, "Noise G 1", -20, 20 ).step( 1 )
+    colorFolder
+      .addRange( jsCfg, "Noise G", -20, 20 ).step( 1 )
       .onChange { updateShaderFct }
 
-    color1Folder
-      .addRange( jsCfg, "Noise B 1", -20, 20 ).step( 1 )
+    colorFolder
+      .addRange( jsCfg, "Noise B", -20, 20 ).step( 1 )
       .onChange { updateShaderFct }
 
-    color1Folder.open()
-
-    color2Folder
-      .addColor( jsCfg, "Color 2" )
-      .onChange { updateShaderFct }
-
-    color2Folder
-      .addRange( jsCfg, "Alpha 2", 0.0f, 1f ).step( 0.05f )
-      .onChange { updateShaderFct }
-
-    color2Folder
-      .addRange( jsCfg, "Scale x 2", 0, 7 ).step( 1 )
-      .onChange { updateShaderFct }
-
-    color2Folder
-      .addRange( jsCfg, "Scale y 2", 0, 7 ).step( 1 )
-      .onChange { updateShaderFct }
-
-    color2Folder
-      .addRange( jsCfg, "Noise R 2", -20, 20 ).step( 1 )
-      .onChange { updateShaderFct }
-
-    color2Folder
-      .addRange( jsCfg, "Noise G 2", -20, 20 ).step( 1 )
-      .onChange { updateShaderFct }
-
-    color2Folder
-      .addRange( jsCfg, "Noise B 2", -20, 20 ).step( 1 )
-      .onChange { updateShaderFct }
-
-    if( config.`Blending rate` > 1 ) {
-      color2Folder.open()
-    }
+    colorFolder.open()
 
     colorModeFolder
       .addList( jsCfg, "Color mode", Config.colorModes.toJSArray )
       .onChange { updateShaderFct }
 
     colorModeFolder
-      .addRange( jsCfg, "Rate", 1, 30 ).step( 1 )
+      .addRange( jsCfg, "Color rate", 1, 30 ).step( 1 )
       .onChange { updateShaderFct }
 
-    if( config.`Blending rate` == 0 && config.`Color mode` != Config.noColorMode ) {
-      colorModeFolder.open()
+    highlightingFolder
+      .addList( jsCfg, "Highlighting", Config.higlightings.toJSArray )
+      .onChange( updateShaderFct )
+
+    highlightingSubFolder
+      .addList( jsCfg, "Style", Config.styles.toJSArray )
+      .onChange( updateShaderFct )
+
+    highlightingSubFolder
+      .addRange( jsCfg, "Hscale X", 1, 50f ).step( 1 )
+      .onChange( updateShaderFct )
+
+    highlightingSubFolder
+      .addRange( jsCfg, "Hscale Y", 1, 50f ).step( 1 )
+      .onChange( updateShaderFct )
+
+    highlightingSubFolder
+      .addRange( jsCfg, "Rate", 0.0f, 20f ).step( 0.5f )
+      .onChange { updateShaderFct }
+
+    highlightingSubFolder
+      .addRange( jsCfg, "Amplitude", -10f, 10f ).step( 0.5f )
+      .onChange { updateShaderFct }
+
+    highlightingSubFolder
+      .addRange( jsCfg, "Shift", 0.0f, 10f ).step( 0.5f )
+      .onChange { updateShaderFct }
+
+    highlightingFolder.open()
+    if( config.`Highlighting` != Config.noHighlighting ) {
+      highlightingSubFolder.open()
+    } else {
+      highlightingSubFolder.close()
     }
 
     datGUI.open()

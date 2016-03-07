@@ -150,7 +150,7 @@ import ShaderModule._
 
 trait ShaderModule[H <: Hexagon] extends Shader {
 
-  def colors: Seq[DynamicColor]
+  def color: DynamicColor
 
   def name: String
 
@@ -238,6 +238,23 @@ trait ShaderModule[H <: Hexagon] extends Shader {
   def highlighting: HighlightMode
   def cubic: Boolean
   def centerShading: Boolean
+  def colorShading: ColorShadingMode
+
+  def applyColorShading = colorShading match {
+    case Color3D(rate) =>
+      s"""|  float colorLife = u_time / 1000.0 * $rate;
+          |  if ( a_centerFlag == 1.0 ) {
+          |    v_color = shaded3D(center2d, u_color0, u_noise0, u_scaling0, colorLife);
+          |  } else {
+          |    v_color = noised3D(center2d, u_color0, u_noise0, u_scaling0, colorLife);
+          |  }""".stripMargin
+    case NoFX =>
+      s"""|  if ( a_centerFlag == 1.0 ) {
+          |    v_color = shaded3D(center2d, u_color0, u_noise0, u_scaling0, 4.44);
+          |  } else {
+          |    v_color = noised3D(center2d, u_color0, u_noise0, u_scaling0, 4.44);
+          |  }""".stripMargin
+  }
 
   private val twoPi = 2*math.Pi
   private val twoPiBy1000 = twoPi / 1000f
@@ -263,8 +280,6 @@ trait ShaderModule[H <: Hexagon] extends Shader {
           |  v_color.a = (1.0 + hAlpha) * v_color.a;""".stripMargin
     case NoFX => ""
   }
-
-  def applyColorShading: String
 
   private def glslUniformsDeclaration( uniforms: Map[String, String] ): String = uniforms
     .map { p => ( p._1, shortToType(p._2) ) }
@@ -385,8 +400,6 @@ trait MonocolorShaderModule[H <: Hexagon] extends ShaderModule[H] {
   
   def color: DynamicColor
 
-  val colors = Seq(color)
-
   override def vertexUniforms: Map[String, String] = Map(
     "u_color0" -> "v4",
     "u_noise0" -> "v3",
@@ -413,90 +426,4 @@ trait MonocolorShaderModule[H <: Hexagon] extends ShaderModule[H] {
       color.noiseScalingY
     ) )
   }
-
-  def colorShading: ColorShadingMode
-
-  def applyColorShading = colorShading match {
-    case Color3D(rate) =>
-      s"""|  float colorLife = u_time / 1000.0 * $rate;
-          |  if ( a_centerFlag == 1.0 ) {
-          |    v_color = shaded3D(center2d, u_color0, u_noise0, u_scaling0, colorLife);
-          |  } else {
-          |    v_color = noised3D(center2d, u_color0, u_noise0, u_scaling0, colorLife);
-          |  }""".stripMargin
-    case NoFX =>
-      s"""|  if ( a_centerFlag == 1.0 ) {
-          |    v_color = shaded3D(center2d, u_color0, u_noise0, u_scaling0, 4.44);
-          |  } else {
-          |    v_color = noised3D(center2d, u_color0, u_noise0, u_scaling0, 4.44);
-          |  }""".stripMargin
-  }
-}
-
-trait BicolorShaderModule[H <: Hexagon] extends ShaderModule[H] {
-
-  def color0: DynamicColor
-
-  def color1: DynamicColor
-
-  val colors = Seq(color0, color1)
-
-  override def vertexUniforms: Map[String, String] = Map(
-    "u_color0" -> "v4",
-    "u_noise0" -> "v3",
-    "u_scaling0" -> "v2",
-    "u_color1" -> "v4",
-    "u_noise1" -> "v3",
-    "u_scaling1" -> "v2"
-    )
-
-  protected def loadUniforms( mesh: Mesh ): Unit = {
-    val loader = uniformLoader( mesh )
-  
-    loader( "u_color0", new Vector4(
-      color0.baseColor.r,
-      color0.baseColor.g,
-      color0.baseColor.b,
-      color0.baseColor.a
-    ) )
-    val noise0 = color0.noiseCoeffs
-    loader( "u_noise0", new Vector3(
-      noise0._1,
-      noise0._2,
-      noise0._3
-    ) )
-    loader( "u_scaling0", new Vector2(
-      color0.noiseScalingX,
-      color0.noiseScalingY
-    ) )
-
-    loader( "u_color1", new Vector4(
-      color1.baseColor.r,
-      color1.baseColor.g,
-      color1.baseColor.b,
-      color1.baseColor.a
-    ) )
-    val noise1 = color1.noiseCoeffs
-    loader( "u_noise1", new Vector3(
-      noise1._1,
-      noise1._2,
-      noise1._3
-    ) )
-    loader( "u_scaling1", new Vector2(
-      color1.noiseScalingX,
-      color1.noiseScalingY
-    ) )
-  }
-
-  def applyColorShading =
-      """  vec4 color0;
-        |  vec4 color1;
-        |  if ( a_centerFlag == 1.0 ) {
-        |    color0 = shaded3D(center2d, u_color0, u_noise0, u_scaling0, 4.44);
-        |    color1 = shaded3D(center2d, u_color1, u_noise1, u_scaling1, 4.44);
-        |  } else {
-        |    color0 = noised3D(center2d, u_color0, u_noise0, u_scaling0, 4.44);
-        |    color1 = noised3D(center2d, u_color1, u_noise1, u_scaling1, 4.44);
-        |  }
-        |  v_color = blendAlpha * color0 + (1.0 - blendAlpha) * color1;""".stripMargin
 }

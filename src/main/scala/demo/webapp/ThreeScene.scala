@@ -165,7 +165,7 @@ class ThreeScene( config: Config, maxWidth: Int, maxHeight: Int, maxHexagons: In
   def setShader( shaderModule: ShaderModule[LivingHexagon] ): Unit = {
     println("vertexShader", shaderModule.vertexShader)
     println("fragmentShader", shaderModule.fragmentShader)
-    println("colors", shaderModule.colors)
+    println("color", shaderModule.color)
     println("border", shaderModule.border)
     println("blendingRate", shaderModule.blendingRate)
     println("cubic", shaderModule.cubic)

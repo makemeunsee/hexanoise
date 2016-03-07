@@ -41,14 +41,21 @@ object Config {
   val colorMode3d: String = "Color3D"
   val colorModes: Seq[String] = Seq(noColorMode, colorMode3d)
 
-  val higlightings = Seq("Pulsating", "Blending", "None")
+  val noHighlighting = "None"
+  val blending = "Blending"
+  val pulsating = "Pulsating"
+  val higlightings = Seq( pulsating, blending, noHighlighting )
+
+  val sinus = "Sinus"
+  val simplex2d = "Simplex2d"
+  val simplex3d = "Simplex3d"
+  val styles = Seq[String]( sinus, simplex2d, simplex3d )
 
   val defaultBackgroundColor: String = JsColors.colorIntToJsString( Colors.BLACK )
   val defaultShaderName: String = ShadersPack.HeadacheMachine2.name
 
   def loadShader(module: ShaderModule[_], bgColor: String, name: String = "custom" ): Config = {
     val baseConfig = Config().copy(
-      `Blending rate` = module.blendingRate,
       `Cubic` = module.cubic,
       `Shader` = name,
       `Background color`= bgColor,
@@ -70,54 +77,55 @@ object Config {
         )
     }
 
+    def applyStyle( alphaFunction: AlphaFunction, config: Config ): Config = alphaFunction match {
+      case Sinus( rate, amplitude, shift ) =>
+        config.copy( `Style` = Config.sinus,
+          `Rate` = rate * 10f,
+          `Amplitude` = amplitude,
+          `Shift` = -shift )
+      case SimplexNoise2D( xScale, yScale, rate, amplitude, shift ) =>
+        config.copy( `Style` = Config.simplex2d,
+          `Hscale X` = ( 1f / xScale ).toInt,
+          `Hscale Y` = ( 1f / yScale ).toInt,
+          `Rate` = rate * 10f,
+          `Amplitude` = amplitude,
+          `Shift` = -shift )
+      case SimplexNoise3D( xScale, yScale, rate, amplitude, shift ) =>
+        config.copy(  `Style` = Config.simplex3d,
+          `Hscale X` = ( 1f / xScale ).toInt,
+          `Hscale Y` = ( 1f / yScale ).toInt,
+          `Rate` = rate * 10f,
+          `Amplitude` = amplitude,
+          `Shift` = -shift )
+    }
+
     val richConfig1 = module.highlighting match {
       case Pulsating(alphaFunction) =>
-        richConfig0.copy( `Highlighting` = "Pulsating" )
+        applyStyle( alphaFunction, richConfig0.copy( `Highlighting` = pulsating ) )
       case Blending(alphaFunction) =>
-        richConfig0.copy( `Highlighting` = "Blending" )
+        applyStyle( alphaFunction, richConfig0.copy( `Highlighting` = blending ) )
       case NoFX =>
-        richConfig0.copy( `Highlighting` = "None" )
+        richConfig0.copy( `Highlighting` = noHighlighting )
     }
 
-    val richConfig2 = module match {
-      case monoModule: MonocolorShaderModule[_] =>
-        val richConfig3 = monoModule.colorShading match {
-          case NoFX =>
-            richConfig1.copy(`Color mode` = Config.noColorMode, `Rate` = 0)
-          case Color3D(rate) =>
-            richConfig1.copy(`Color mode` = Config.colorMode3d, `Rate` = (rate * 20).toInt)
-        }
-        richConfig3.copy(
-          `Color 1` = JsColors.colorIntToJsString( monoModule.color.baseColor.rgbInt ),
-          `Alpha 1` = monoModule.color.baseColor.a,
-          `Scale x 1` = configScaleFromNoiseScale( monoModule.color.noiseScalingX),
-          `Scale y 1` = configScaleFromNoiseScale( monoModule.color.noiseScalingY),
-          `Noise R 1` = configNoiseFactorFromNoiseFactor( monoModule.color.noiseCoeffs._1 ),
-          `Noise G 1` = configNoiseFactorFromNoiseFactor( monoModule.color.noiseCoeffs._2 ),
-          `Noise B 1` = configNoiseFactorFromNoiseFactor( monoModule.color.noiseCoeffs._3 )
-        )
-      case biModule: BicolorShaderModule[_] =>
-        richConfig1.copy(
-          `Color 1` = JsColors.colorIntToJsString( biModule.color0.baseColor.rgbInt ),
-          `Alpha 1` = biModule.color0.baseColor.a,
-          `Scale x 1` = configScaleFromNoiseScale( biModule.color0.noiseScalingX),
-          `Scale y 1` = configScaleFromNoiseScale( biModule.color0.noiseScalingY),
-          `Noise R 1` = configNoiseFactorFromNoiseFactor( biModule.color0.noiseCoeffs._1 ),
-          `Noise G 1` = configNoiseFactorFromNoiseFactor( biModule.color0.noiseCoeffs._2 ),
-          `Noise B 1` = configNoiseFactorFromNoiseFactor( biModule.color0.noiseCoeffs._3 ),
-          `Color 2` = JsColors.colorIntToJsString( biModule.color1.baseColor.rgbInt ),
-          `Alpha 2` = biModule.color1.baseColor.a,
-          `Scale x 2` = configScaleFromNoiseScale( biModule.color1.noiseScalingX),
-          `Scale y 2` = configScaleFromNoiseScale( biModule.color1.noiseScalingY),
-          `Noise R 2` = configNoiseFactorFromNoiseFactor( biModule.color1.noiseCoeffs._1 ),
-          `Noise G 2` = configNoiseFactorFromNoiseFactor( biModule.color1.noiseCoeffs._2 ),
-          `Noise B 2` = configNoiseFactorFromNoiseFactor( biModule.color1.noiseCoeffs._3 ),
-          `Color mode` = Config.noColorMode,
-          `Rate` = 0
-        )
+    val richConfig2 = module.colorShading match {
+      case NoFX =>
+        richConfig1.copy(`Color mode` = Config.noColorMode, `Color rate` = 0)
+      case Color3D(rate) =>
+        richConfig1.copy(`Color mode` = Config.colorMode3d, `Color rate` = (rate * 20).toInt)
     }
 
-    richConfig2
+    val richConfig3 = richConfig2.copy(
+      `Color` = JsColors.colorIntToJsString( module.color.baseColor.rgbInt ),
+      `Alpha` = module.color.baseColor.a,
+      `Scale x` = configScaleFromNoiseScale( module.color.noiseScalingX),
+      `Scale y` = configScaleFromNoiseScale( module.color.noiseScalingY),
+      `Noise R` = configNoiseFactorFromNoiseFactor( module.color.noiseCoeffs._1 ),
+      `Noise G` = configNoiseFactorFromNoiseFactor( module.color.noiseCoeffs._2 ),
+      `Noise B` = configNoiseFactorFromNoiseFactor( module.color.noiseCoeffs._3 )
+    )
+
+    richConfig3
   }
 
   private def noiseScaleFromConfigScale(coeff: Int): Float = {
@@ -152,95 +160,81 @@ import Config.{noiseFactorFromConfigNoiseFactor, noiseScaleFromConfigScale}
 @JSExport
 case class Config (
 
-  @(JSExport @field)
+                    @(JSExport @field)
   var `Background color`: String = Config.defaultBackgroundColor,
 
-  // 0 < blending rate
-  @(JSExport @field)
-  var `Blending rate`: Float = 1f,
-
-  @(JSExport @field)
+                    @(JSExport @field)
   var `Border size`: Float = 1.0f,
 
-  @(JSExport @field)
+                    @(JSExport @field)
   var `Border color`: String = JsColors.colorIntToJsString( Colors.GRAY ),
 
-  @(JSExport @field)
+                    @(JSExport @field)
   var `Border alpha`: Float = 1.0f,
 
-  @(JSExport @field)
-  var `Color 1`: String = JsColors.colorIntToJsString( Colors.WHITE ),
+                    @(JSExport @field)
+  var `Color`: String = JsColors.colorIntToJsString( Colors.WHITE ),
 
-  @(JSExport @field)
-  var `Alpha 1`: Float = 1.0f,
+                    @(JSExport @field)
+  var `Alpha`: Float = 1.0f,
 
-  @(JSExport @field)
-  var `Scale x 1`: Int = 0,
+                    @(JSExport @field)
+  var `Scale x`: Int = 0,
 
-  @(JSExport @field)
-  var `Scale y 1`: Int = 0,
+                    @(JSExport @field)
+  var `Scale y`: Int = 0,
 
-  @(JSExport @field)
-  var `Noise R 1`: Int = 0,
+                    @(JSExport @field)
+  var `Noise R`: Int = 0,
 
-  @(JSExport @field)
-  var `Noise G 1`: Int = 0,
+                    @(JSExport @field)
+  var `Noise G`: Int = 0,
 
-  @(JSExport @field)
-  var `Noise B 1`: Int = 0,
+                    @(JSExport @field)
+  var `Noise B`: Int = 0,
 
-  @(JSExport @field)
-  var `Color 2`: String = JsColors.colorIntToJsString( Colors.BLACK ),
+                    @(JSExport @field)
+  var `Highlighting`: String = Config.noHighlighting,
 
-  @(JSExport @field)
-  var `Alpha 2`: Float = 1.0f,
+                    @(JSExport @field)
+  var `Style`: String = Config.sinus,
 
-  @(JSExport @field)
-  var `Scale x 2`: Int = 0,
+                    @(JSExport @field)
+  var `Hscale X`: Int = 0,
 
-  @(JSExport @field)
-  var `Scale y 2`: Int = 0,
+                    @(JSExport @field)
+  var `Hscale Y`: Int = 0,
 
-  @(JSExport @field)
-  var `Noise R 2`: Int = 0,
+                    @(JSExport @field)
+  var `Rate`: Float = 0,
 
-  @(JSExport @field)
-  var `Noise G 2`: Int = 0,
+                    @(JSExport @field)
+  var `Amplitude`: Float = 0,
 
-  @(JSExport @field)
-  var `Noise B 2`: Int = 0,
+                    @(JSExport @field)
+  var `Shift`: Float = 0,
 
-  @(JSExport @field)
-  var `Highlighting`: String = "None",
-
-  @(JSExport @field)
+                    @(JSExport @field)
   var `Cubic`: Boolean = false,
 
-  @(JSExport @field)
+                    @(JSExport @field)
   var `Color mode`: String = Config.noColorMode,
 
-  @(JSExport @field)
-  var `Rate`: Int = 10,
+                    @(JSExport @field)
+  var `Color rate`: Float = 0f,
 
-  @(JSExport @field)
+                    @(JSExport @field)
   var `Shade center`: Boolean = true,
 
-  @(JSExport @field)
+                    @(JSExport @field)
   var `Shader`: String = Config.defaultShaderName
 ) {
 
   private def toDynamicColor0 = DynamicColor(
-      SimpleColor(JsColors.jsStringToRgbaColor( `Color 1`, `Alpha 1` )),
-      noiseScaleFromConfigScale(`Scale x 1`),
-      noiseScaleFromConfigScale(`Scale y 1`),
-      ( noiseFactorFromConfigNoiseFactor( `Noise R 1` ), noiseFactorFromConfigNoiseFactor( `Noise G 1` ), noiseFactorFromConfigNoiseFactor( `Noise B 1` ) )
-    )
-
-  private def toDynamicColor1 = DynamicColor(
-      SimpleColor(JsColors.jsStringToRgbaColor( `Color 2`, `Alpha 2` )),
-      noiseScaleFromConfigScale(`Scale x 2`),
-      noiseScaleFromConfigScale(`Scale y 2`),
-      ( noiseFactorFromConfigNoiseFactor( `Noise R 2` ), noiseFactorFromConfigNoiseFactor( `Noise G 2` ), noiseFactorFromConfigNoiseFactor( `Noise B 2` ) )
+      SimpleColor(JsColors.jsStringToRgbaColor( `Color`, `Alpha` )),
+      noiseScaleFromConfigScale(`Scale x`),
+      noiseScaleFromConfigScale(`Scale y`),
+      ( noiseFactorFromConfigNoiseFactor( `Noise R` ), noiseFactorFromConfigNoiseFactor( `Noise G` ), noiseFactorFromConfigNoiseFactor( `Noise B` ) )
     )
 
   private def toBorder =
@@ -252,60 +246,73 @@ case class Config (
 
   private def toColorMode = `Color mode` match {
     case Config.colorMode3d =>
-      Color3D(`Rate`.toFloat / 20f)
+      Color3D(`Color rate`.toFloat / 20f)
     case _ =>
       NoFX
   }
 
-  def toShader: ShaderModule[LivingHexagon] = {
-    if(`Blending rate` != 0) {
-      BackgroundShaderBi(
-        "customBi",
-        toDynamicColor0,
-        toDynamicColor1,
-        border = toBorder,
-        cubic = `Cubic`,
-        blendingRate = `Blending rate`,
-        centerShading = `Shade center`
-      )
-    } else {
-      BackgroundShaderMono(
-        "customMono",
-        toDynamicColor0,
-        border = toBorder,
-        cubic = `Cubic`,
-        centerShading = `Shade center`,
-        colorShading = toColorMode
-      )
-    }
+  private def toAlphaFunction = `Style` match {
+    case Config.sinus =>
+      Sinus( `Rate` / 10f,
+        `Amplitude`,
+        -`Shift` )
+    case Config.simplex2d =>
+      SimplexNoise2D( 1f / `Hscale X`.toFloat,
+        1f / `Hscale Y`.toFloat,
+        `Rate` / 10f,
+        `Amplitude`,
+        -`Shift` )
+    case Config.simplex3d =>
+      SimplexNoise3D( 1f / `Hscale X`.toFloat,
+        1f / `Hscale Y`.toFloat,
+        `Rate` / 10f,
+        `Amplitude`,   // TODO adapt amplitude and shift to gui
+        -`Shift` )
   }
+
+  private def toHighlighting = `Highlighting` match {
+    case Config.blending =>
+      Blending( toAlphaFunction )
+    case Config.pulsating =>
+      Pulsating( toAlphaFunction )
+    case Config.noHighlighting =>
+      NoFX
+  }
+
+  def toShader: ShaderModule[LivingHexagon] = BackgroundShader(
+    "customMono",
+    toDynamicColor0,
+    border = toBorder,
+    cubic = `Cubic`,
+    centerShading = `Shade center`,
+    colorShading = toColorMode,
+    highlighting = toHighlighting
+  )
 
   def apply( otherConfig: Config ): Unit = {
     `Background color` = otherConfig.`Background color`
-    `Blending rate` = otherConfig.`Blending rate`
     `Border size` = otherConfig.`Border size`
     `Border color` = otherConfig.`Border color`
     `Border alpha` = otherConfig.`Border alpha`
-    `Color 1` = otherConfig.`Color 1`
-    `Alpha 1` = otherConfig.`Alpha 1`
-    `Scale x 1` = otherConfig.`Scale x 1`
-    `Scale y 1` = otherConfig.`Scale y 1`
-    `Noise R 1` = otherConfig.`Noise R 1`
-    `Noise G 1` = otherConfig.`Noise G 1`
-    `Noise B 1` = otherConfig.`Noise B 1`
-    `Color 2` = otherConfig.`Color 2`
-    `Alpha 2` = otherConfig.`Alpha 2`
-    `Scale x 2` = otherConfig.`Scale x 2`
-    `Scale y 2` = otherConfig.`Scale y 2`
-    `Noise R 2` = otherConfig.`Noise R 2`
-    `Noise G 2` = otherConfig.`Noise G 2`
-    `Noise B 2` = otherConfig.`Noise B 2`
+    `Color` = otherConfig.`Color`
+    `Alpha` = otherConfig.`Alpha`
+    `Scale x` = otherConfig.`Scale x`
+    `Scale y` = otherConfig.`Scale y`
+    `Noise R` = otherConfig.`Noise R`
+    `Noise G` = otherConfig.`Noise G`
+    `Noise B` = otherConfig.`Noise B`
     `Highlighting` = otherConfig.`Highlighting`
+    `Style` = otherConfig.`Style`
+    `Hscale X` = otherConfig.`Hscale X`
+    `Hscale Y` = otherConfig.`Hscale Y`
+    `Rate` = otherConfig.`Rate`
+    `Amplitude` = otherConfig.`Amplitude`
+    `Shift` = otherConfig.`Shift`
     `Cubic` = otherConfig.`Cubic`
     `Shade center` = otherConfig.`Shade center`
     `Shader` = otherConfig.`Shader`
     `Color mode` = otherConfig.`Color mode`
-    `Rate` = otherConfig.`Rate`
+    `Color rate` = otherConfig.`Color rate`
   }
 
 }
