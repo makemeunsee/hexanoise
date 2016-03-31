@@ -1,13 +1,13 @@
 package demo.webapp
 
 import demo.JsColors
-import rendering.{SimpleColor, DynamicColor, Colors}
+import rendering.{Colors, DynamicColor, SimpleColor}
 import rendering.shaders._
 import world2d.LivingHexagon
 
 import scala.annotation.meta.field
 import scala.language.implicitConversions
-
+import scala.scalajs.js.JSON
 import scala.scalajs.js.annotation.JSExport
 
 /**
@@ -313,6 +313,36 @@ case class Config (
     `Shader` = otherConfig.`Shader`
     `Color mode` = otherConfig.`Color mode`
     `Color rate` = otherConfig.`Color rate`
+  }
+
+  def jsonMe: String = s"""{
+  "Background color": "${`Background color`}",
+  "Border size": ${`Border size`},
+  "Border color": "${`Border color`}",
+  "Border alpha": ${`Border alpha`},
+  "Color": "${`Color`}",
+  "Alpha": ${`Alpha`},
+  "Scale x": ${`Scale x`},
+  "Scale y": ${`Scale y`},
+  "Noise R": ${`Noise R`},
+  "Noise G": ${`Noise G`},
+  "Noise B": ${`Noise B`},
+  "Highlighting": "${`Highlighting`}",
+  "Style": "${`Style`}",
+  "Hscale X": ${`Hscale X`},
+  "Hscale Y": ${`Hscale Y`},
+  "Rate": ${`Rate`},
+  "Amplitude": ${`Amplitude`},
+  "Shift": ${`Shift`},
+  "Cubic": ${`Cubic`},
+  "Shade center": ${`Shade center`},
+  "Shader": "${`Shader`}",
+  "Color mode": "${`Color mode`}",
+  "Color rate": ${`Color rate`}
+}"""
+
+  def applyJson(json: String): Unit = {
+    println(JSON.parse(json))
   }
 
 }

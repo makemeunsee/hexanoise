@@ -2,12 +2,30 @@ function appMain() {
 
     var scramblMain = demo.webapp.ScramblMain().init();
 
+    function selectText(element) {
+        var doc = document
+            , text = doc.getElementById(element)
+            , range, selection
+            ;
+        if (doc.body.createTextRange) {
+            range = document.body.createTextRange();
+            range.moveToElementText(text);
+            range.select();
+        } else if (window.getSelection) {
+            selection = window.getSelection();
+            range = document.createRange();
+            range.selectNodeContents(text);
+            selection.removeAllRanges();
+            selection.addRange(range);
+        }
+    }
+
     // help dialog
     $(function() {
         $( "#dialog" ).dialog({
             autoOpen: false,
-            width: "100%",
-            height: 100
+            width: "33%",
+            height: 500
         });
     });
 
@@ -33,17 +51,35 @@ function appMain() {
       $( "button" ).button();
     });
 
-    function showShareDialog() {
-        if ( $( "#dialog" ).dialog( "isOpen" ) ) {
-            $( "#dialog" ).dialog( "close" );
-        } else {
-            var shareLink = scramblMain.shareLink();
-            $( "#dialog" ).append( "<a id='shareLink' href='" + shareLink + "'>" + shareLink + "</a>");
-            $( "#dialog" ).dialog( "open" );
-        }
+    function showSaveDialog() {
+        $( "#configText" ).remove();
+        $( "#configLoader" ).remove();
+        $( "#dialog" ).append( "<div id='configText'>" + scramblMain.jsonConfig() + "</div>" );
+        $( "#dialog" ).dialog( "open" );
+        selectText("configText");
     }
-    $("#share").unbind("click");
-    $("#share").click(showShareDialog);
+    $("#save").unbind("click");
+    $("#save").click(showSaveDialog);
+
+    function loadConfig() {
+        // TODO
+        $( "#dialog" ).dialog( "close" );
+    }
+
+    function showLoadDialog() {
+        $( "#configText" ).remove();
+        $( "#configLoader" ).remove();
+        $( "#dialog" ).append( "<div id='configLoader'>" +
+            "<textarea id='configArea' rows='30' style='width: 100%'>--------------- paste and load config ---------------</textarea>" +
+            "<button id='configLoadButton' type='button'>load</button>" +
+            "</div>" );
+        $( "#configLoadButton" ).unbind( "click" );
+        $( "#configLoadButton" ).click( loadConfig );
+        $( "#dialog" ).dialog( "open" );
+        selectText("configArea");
+    }
+    $("#load").unbind("click");
+    $("#load").click(showLoadDialog);
 
     $("#reset").unbind("click");
     $("#reset").click(function() {
@@ -120,7 +156,7 @@ function appMain() {
         }
     }
 
-    function onTouchEnd(event) {
+    function onTouchEnd() {
         canvas.removeEventListener( "mouseup", onMouseUp, false );
         canvas.removeEventListener( "touchend", onTouchEnd, false );
         canvas.removeEventListener( "mousemove", onMouseMove, false );
@@ -244,6 +280,6 @@ function appMain() {
     scramblMain.loadModel();
     toggleUI(true);
     main();
-};
+}
 
 window.onload = appMain;

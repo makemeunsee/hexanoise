@@ -4,8 +4,6 @@ package demo.webapp
  * Created by markus on 16/02/2015.
  */
 
-import java.util.Base64
-
 import org.scalajs.dom
 import org.scalajs.dom.screen
 import datgui.{DatController, DatGUI}
@@ -83,7 +81,7 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
     import js.JSConverters._
 
     commonFolder
-      .addList( jsCfg, "Shader", ( ShadersPack.values.map(_.name) ).toJSArray )
+      .addList( jsCfg, "Shader", ShadersPack.values.map( _.name).toJSArray )
       .onFinishChange { string: String =>
         val shader = ShadersPack( string )
         scene.setShader( shader )
@@ -114,32 +112,32 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
         ( scene.setBackgroundColor _ ).tupled(color)
       }
 
-    def updateShaderFct[T]: T => Unit = _ => {
+    def shaderUpdateFunction[T]: T => Unit = _ => {
       println(config)
       scene.setShader( config.toShader )
     }
 
     commonFolder
       .addBoolean( jsCfg, "Cubic" )
-      .onChange { updateShaderFct }
+      .onChange { shaderUpdateFunction }
 
     commonFolder
       .addBoolean( jsCfg, "Shade center" )
-      .onChange { updateShaderFct }
+      .onChange { shaderUpdateFunction }
 
     commonFolder.open()
 
     borderFolder
       .addRange( jsCfg, "Border size", 0.0f, 3.5f ).step( 0.1f )
-      .onChange { updateShaderFct }
+      .onChange { shaderUpdateFunction }
 
     borderFolder
       .addColor( jsCfg, "Border color" )
-      .onChange { updateShaderFct }
+      .onChange { shaderUpdateFunction }
 
     borderFolder
       .addRange( jsCfg, "Border alpha", 0.0f, 1f ).step( 0.05f )
-      .onChange { updateShaderFct }
+      .onChange { shaderUpdateFunction }
 
     if( config.`Border size` > 0 ) {
       borderFolder.open()
@@ -147,69 +145,69 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
 
     colorFolder
       .addColor( jsCfg, "Color" )
-      .onChange { updateShaderFct }
+      .onChange { shaderUpdateFunction }
 
     colorFolder
       .addRange( jsCfg, "Alpha", 0.0f, 1f ).step( 0.05f )
-      .onChange { updateShaderFct }
+      .onChange { shaderUpdateFunction }
 
     colorFolder
       .addRange( jsCfg, "Scale x", 0, 7f ).step( 1 )
-      .onChange { updateShaderFct }
+      .onChange { shaderUpdateFunction }
 
     colorFolder
       .addRange( jsCfg, "Scale y", 0, 7 ).step( 1 )
-      .onChange { updateShaderFct }
+      .onChange { shaderUpdateFunction }
 
     colorFolder
       .addRange( jsCfg, "Noise R", -20, 20 ).step( 1 )
-      .onChange { updateShaderFct }
+      .onChange { shaderUpdateFunction }
 
     colorFolder
       .addRange( jsCfg, "Noise G", -20, 20 ).step( 1 )
-      .onChange { updateShaderFct }
+      .onChange { shaderUpdateFunction }
 
     colorFolder
       .addRange( jsCfg, "Noise B", -20, 20 ).step( 1 )
-      .onChange { updateShaderFct }
+      .onChange { shaderUpdateFunction }
 
     colorFolder.open()
 
     colorModeFolder
       .addList( jsCfg, "Color mode", Config.colorModes.toJSArray )
-      .onChange { updateShaderFct }
+      .onChange { shaderUpdateFunction }
 
     colorModeFolder
       .addRange( jsCfg, "Color rate", 1, 30 ).step( 1 )
-      .onChange { updateShaderFct }
+      .onChange { shaderUpdateFunction }
 
     highlightingFolder
       .addList( jsCfg, "Highlighting", Config.higlightings.toJSArray )
-      .onChange( updateShaderFct )
+      .onChange( shaderUpdateFunction )
 
     highlightingSubFolder
       .addList( jsCfg, "Style", Config.styles.toJSArray )
-      .onChange( updateShaderFct )
+      .onChange( shaderUpdateFunction )
 
     highlightingSubFolder
       .addRange( jsCfg, "Hscale X", 1, 50f ).step( 1 )
-      .onChange( updateShaderFct )
+      .onChange( shaderUpdateFunction )
 
     highlightingSubFolder
       .addRange( jsCfg, "Hscale Y", 1, 50f ).step( 1 )
-      .onChange( updateShaderFct )
+      .onChange( shaderUpdateFunction )
 
     highlightingSubFolder
       .addRange( jsCfg, "Rate", 0.0f, 20f ).step( 0.5f )
-      .onChange { updateShaderFct }
+      .onChange { shaderUpdateFunction }
 
     highlightingSubFolder
       .addRange( jsCfg, "Amplitude", -2f, 2f ).step( 0.1f )
-      .onChange { updateShaderFct }
+      .onChange { shaderUpdateFunction }
 
     highlightingSubFolder
       .addRange( jsCfg, "Shift", -2f, 2f ).step( 0.1f )
-      .onChange { updateShaderFct }
+      .onChange { shaderUpdateFunction }
 
     highlightingFolder.open()
     if( config.`Highlighting` != Config.noHighlighting ) {
@@ -227,9 +225,5 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
   }
 
   @JSExport
-  def shareLink(): String = {
-    var path = dom.location.pathname + "?"
-    path += "config=" + JSON.stringify(config.asInstanceOf[js.Dynamic])
-    path
-  }
+  def jsonConfig(): String = s"<br><br><br>${config.jsonMe.replaceAll("\\n", "<br>")}"
 }
