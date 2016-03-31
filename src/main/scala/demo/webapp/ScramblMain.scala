@@ -4,6 +4,8 @@ package demo.webapp
  * Created by markus on 16/02/2015.
  */
 
+import java.util.Base64
+
 import org.scalajs.dom
 import org.scalajs.dom.screen
 import datgui.{DatController, DatGUI}
@@ -36,18 +38,12 @@ object ScramblMain extends JSApp {
       .map(array => (array(0), array(1)))
       .toMap
 
-    val shaderName = args
-      .get("shader")
-      .filter( ShadersPack.values.map(_.name).toSet.contains )
-      .getOrElse(Config.defaultShaderName)
-
-    val bg = args
-      .get("bg")
-      .map("#"+_)
-      .getOrElse(Config.defaultBackgroundColor)
-
-    val config = Config.loadShader( ShadersPack( shaderName ), bg )
-    config.`Shader` = shaderName
+    val defaultConfig = Config.loadShader( ShadersPack( Config.defaultShaderName ), Config.defaultBackgroundColor, Config.defaultShaderName )
+    val config = args
+      .get( "config" )
+      .map( jsonCfg => Try( JSON.parse(jsonCfg).asInstanceOf[Config] ) )
+      .flatMap( _.toOption )
+      .getOrElse( defaultConfig )
 
     val maxHexagons = args
       .get("maxhexas")
@@ -87,7 +83,7 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
     import js.JSConverters._
 
     commonFolder
-      .addList( jsCfg, "Shader", ( ShadersPack.values.map(_.name) :+ "customBi" :+ "customMono" ).toJSArray )
+      .addList( jsCfg, "Shader", ( ShadersPack.values.map(_.name) ).toJSArray )
       .onFinishChange { string: String =>
         val shader = ShadersPack( string )
         scene.setShader( shader )
@@ -208,11 +204,11 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
       .onChange { updateShaderFct }
 
     highlightingSubFolder
-      .addRange( jsCfg, "Amplitude", -10f, 10f ).step( 0.5f )
+      .addRange( jsCfg, "Amplitude", -2f, 2f ).step( 0.1f )
       .onChange { updateShaderFct }
 
     highlightingSubFolder
-      .addRange( jsCfg, "Shift", 0.0f, 10f ).step( 0.5f )
+      .addRange( jsCfg, "Shift", -2f, 2f ).step( 0.1f )
       .onChange { updateShaderFct }
 
     highlightingFolder.open()
@@ -233,8 +229,7 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
   @JSExport
   def shareLink(): String = {
     var path = dom.location.pathname + "?"
-    path += "bg=" + config.`Background color`.substring(1)
-    path += "&shader=" + config.`Shader`
+    path += "config=" + JSON.stringify(config.asInstanceOf[js.Dynamic])
     path
   }
 }

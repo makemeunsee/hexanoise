@@ -385,7 +385,7 @@ void main()
   $applyEdge
 }"""
 
-  private val intRegex = "([\\( ,][0-9]+)([\\) ,;])".r
+  private val intRegex = "([\\( ,-][0-9]+)([\\) ,;])".r
   private def intToFloatInString(str: String): String = intRegex.replaceAllIn(str, m =>
     m.group(1) + ".0" + m.group(2)
   )

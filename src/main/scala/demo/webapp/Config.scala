@@ -52,9 +52,9 @@ object Config {
   val styles = Seq[String]( sinus, simplex2d, simplex3d )
 
   val defaultBackgroundColor: String = JsColors.colorIntToJsString( Colors.BLACK )
-  val defaultShaderName: String = ShadersPack.HeadacheMachine2.name
+  val defaultShaderName: String = ShadersPack.LimeGradient2.name
 
-  def loadShader(module: ShaderModule[_], bgColor: String, name: String = "custom" ): Config = {
+  def loadShader(module: ShaderModule[_], bgColor: String, name: String ): Config = {
     val baseConfig = Config().copy(
       `Cubic` = module.cubic,
       `Shader` = name,
@@ -160,77 +160,77 @@ import Config.{noiseFactorFromConfigNoiseFactor, noiseScaleFromConfigScale}
 @JSExport
 case class Config (
 
-                    @(JSExport @field)
+  @(JSExport @field)
   var `Background color`: String = Config.defaultBackgroundColor,
 
-                    @(JSExport @field)
+  @(JSExport @field)
   var `Border size`: Float = 1.0f,
 
-                    @(JSExport @field)
+  @(JSExport @field)
   var `Border color`: String = JsColors.colorIntToJsString( Colors.GRAY ),
 
-                    @(JSExport @field)
+  @(JSExport @field)
   var `Border alpha`: Float = 1.0f,
 
-                    @(JSExport @field)
+  @(JSExport @field)
   var `Color`: String = JsColors.colorIntToJsString( Colors.WHITE ),
 
-                    @(JSExport @field)
+  @(JSExport @field)
   var `Alpha`: Float = 1.0f,
 
-                    @(JSExport @field)
+  @(JSExport @field)
   var `Scale x`: Int = 0,
 
-                    @(JSExport @field)
+  @(JSExport @field)
   var `Scale y`: Int = 0,
 
-                    @(JSExport @field)
+  @(JSExport @field)
   var `Noise R`: Int = 0,
 
-                    @(JSExport @field)
+  @(JSExport @field)
   var `Noise G`: Int = 0,
 
-                    @(JSExport @field)
+  @(JSExport @field)
   var `Noise B`: Int = 0,
 
-                    @(JSExport @field)
+  @(JSExport @field)
   var `Highlighting`: String = Config.noHighlighting,
 
-                    @(JSExport @field)
+  @(JSExport @field)
   var `Style`: String = Config.sinus,
 
-                    @(JSExport @field)
+  @(JSExport @field)
   var `Hscale X`: Int = 0,
 
-                    @(JSExport @field)
+  @(JSExport @field)
   var `Hscale Y`: Int = 0,
 
-                    @(JSExport @field)
+  @(JSExport @field)
   var `Rate`: Float = 0,
 
-                    @(JSExport @field)
+  @(JSExport @field)
   var `Amplitude`: Float = 0,
 
-                    @(JSExport @field)
+  @(JSExport @field)
   var `Shift`: Float = 0,
 
-                    @(JSExport @field)
+  @(JSExport @field)
   var `Cubic`: Boolean = false,
 
-                    @(JSExport @field)
+  @(JSExport @field)
   var `Color mode`: String = Config.noColorMode,
 
-                    @(JSExport @field)
+  @(JSExport @field)
   var `Color rate`: Float = 0f,
 
-                    @(JSExport @field)
+  @(JSExport @field)
   var `Shade center`: Boolean = true,
 
-                    @(JSExport @field)
+  @(JSExport @field)
   var `Shader`: String = Config.defaultShaderName
 ) {
 
-  private def toDynamicColor0 = DynamicColor(
+  private def toDynamicColor = DynamicColor(
       SimpleColor(JsColors.jsStringToRgbaColor( `Color`, `Alpha` )),
       noiseScaleFromConfigScale(`Scale x`),
       noiseScaleFromConfigScale(`Scale y`),
@@ -266,7 +266,7 @@ case class Config (
       SimplexNoise3D( 1f / `Hscale X`.toFloat,
         1f / `Hscale Y`.toFloat,
         `Rate` / 10f,
-        `Amplitude`,   // TODO adapt amplitude and shift to gui
+        `Amplitude`,
         -`Shift` )
   }
 
@@ -280,8 +280,8 @@ case class Config (
   }
 
   def toShader: ShaderModule[LivingHexagon] = BackgroundShader(
-    "customMono",
-    toDynamicColor0,
+    "custom",
+    toDynamicColor,
     border = toBorder,
     cubic = `Cubic`,
     centerShading = `Shade center`,
