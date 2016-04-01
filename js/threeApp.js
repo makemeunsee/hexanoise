@@ -62,7 +62,7 @@ function appMain() {
     $("#save").click(showSaveDialog);
 
     function loadConfig() {
-        // TODO
+        scramblMain.loadJsonConfig( document.getElementById( "configArea" ).value );
         $( "#dialog" ).dialog( "close" );
     }
 

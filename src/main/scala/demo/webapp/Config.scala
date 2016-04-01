@@ -7,7 +7,7 @@ import world2d.LivingHexagon
 
 import scala.annotation.meta.field
 import scala.language.implicitConversions
-import scala.scalajs.js.JSON
+import scala.scalajs.js.{Dynamic, JSON}
 import scala.scalajs.js.annotation.JSExport
 
 /**
@@ -342,7 +342,30 @@ case class Config (
 }"""
 
   def applyJson(json: String): Unit = {
-    println(JSON.parse(json))
+    val obj = JSON.parse(json)
+    `Background color` = obj.selectDynamic("Background color").asInstanceOf[String]
+    `Border size` = obj.selectDynamic("Border size").asInstanceOf[Float]
+    `Border color` = obj.selectDynamic("Border color").asInstanceOf[String]
+    `Border alpha` = obj.selectDynamic("Border alpha").asInstanceOf[Float]
+    `Color` = obj.selectDynamic("Color").asInstanceOf[String]
+    `Alpha` = obj.selectDynamic("Alpha").asInstanceOf[Float]
+    `Scale x` = obj.selectDynamic("Scale x").asInstanceOf[Int]
+    `Scale y` = obj.selectDynamic("Scale y").asInstanceOf[Int]
+    `Noise R` = obj.selectDynamic("Noise R").asInstanceOf[Int]
+    `Noise G` = obj.selectDynamic("Noise G").asInstanceOf[Int]
+    `Noise B` = obj.selectDynamic("Noise B").asInstanceOf[Int]
+    `Highlighting` = obj.selectDynamic("Highlighting").asInstanceOf[String]
+    `Style` = obj.selectDynamic("Style").asInstanceOf[String]
+    `Hscale X` = obj.selectDynamic("Hscale X").asInstanceOf[Int]
+    `Hscale Y` = obj.selectDynamic("Hscale Y").asInstanceOf[Int]
+    `Rate` = obj.selectDynamic("Rate").asInstanceOf[Float]
+    `Amplitude` = obj.selectDynamic("Amplitude").asInstanceOf[Float]
+    `Shift` = obj.selectDynamic("Shift").asInstanceOf[Float]
+    `Cubic` = obj.selectDynamic("Cubic").asInstanceOf[Boolean]
+    `Shade center` = obj.selectDynamic("Shade center").asInstanceOf[Boolean]
+    `Shader` = obj.selectDynamic("Shader").asInstanceOf[String]
+    `Color mode` = obj.selectDynamic("Color mode").asInstanceOf[String]
+    `Color rate` = obj.selectDynamic("Color rate").asInstanceOf[Float]
   }
 
 }

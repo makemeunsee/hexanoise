@@ -113,7 +113,6 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
       }
 
     def shaderUpdateFunction[T]: T => Unit = _ => {
-      println(config)
       scene.setShader( config.toShader )
     }
 
@@ -226,4 +225,11 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
 
   @JSExport
   def jsonConfig(): String = s"<br><br><br>${config.jsonMe.replaceAll("\\n", "<br>")}"
+
+  @JSExport
+  def loadJsonConfig(jsonConfig: String): Unit = {
+    config.applyJson(jsonConfig)
+    scene.setShader( config.toShader )
+    DatGUI.updateDisplay( datGUI )
+  }
 }

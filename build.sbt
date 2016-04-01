@@ -14,7 +14,7 @@ resolvers += sbt.Resolver.bintrayRepo("denigma", "denigma-releases")
 
 libraryDependencies += "org.denigma" %%% "threejs-facade" % "0.0.71-0.1.5"
 
-libraryDependencies += "org.scala-lang.modules" %% "scala-async" % "0.9.5"
+libraryDependencies += "org.scala-lang.modules" % "scala-async_2.11" % "0.9.6-RC2"
 
 libraryDependencies += "org.scalatest" % "scalatest_2.11" % "2.2.4" % "test"
 
