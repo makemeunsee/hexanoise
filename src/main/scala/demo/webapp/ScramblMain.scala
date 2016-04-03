@@ -37,34 +37,25 @@ object ScramblMain extends JSApp {
       .toMap
 
     val defaultConfig = Config.loadShader( ShadersPack( Config.defaultShaderName ), Config.defaultBackgroundColor, Config.defaultShaderName )
-    val config = args
-      .get( "config" )
-      .map( jsonCfg => Try( JSON.parse(jsonCfg).asInstanceOf[Config] ) )
-      .flatMap( _.toOption )
-      .getOrElse( defaultConfig )
 
     val maxHexagons = args
       .get("maxhexas")
       .flatMap( str => Try{ Integer.parseInt( str ) }.toOption )
       .getOrElse(DEFAULT_MAX_HEXAGONS)
 
-    new ScramblMain(config, maxHexagons)
+    val devMode = args
+      .get( "devmode" )
+      .exists( _ => true )
+
+    new ScramblMain(defaultConfig, maxHexagons, devMode)
   }
 }
 
-class ScramblMain(config: Config, maxHexagons:Int ) {
+class ScramblMain(config: Config, maxHexagons:Int, devMode: Boolean ) {
+
+  import js.JSConverters._
 
   private val datGUI = new DatGUI( js.Dynamic.literal( "load" -> JSON.parse( Config.presets ), "preset" -> "Default" ) )
-
-  private val commonFolder = datGUI.addFolder("...")
-  private val borderFolder = datGUI.addFolder("Border")
-  private val colorFolder = datGUI.addFolder("Color")
-  private val colorModeFolder = datGUI.addFolder("Color mode")
-  private val highlightingFolder = datGUI.addFolder("Effect")
-  private val highlightingSubFolder = highlightingFolder.addFolder( "Effect params" )
-
-
-  private var folders: Map[DatGUI, Seq[DatController[_]]] = Map.empty.withDefaultValue( Seq.empty )
 
   // ******************** actual three.js scene ********************
 
@@ -76,9 +67,30 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
 
   // ******************** init code ********************
 
-  def setupDatGUI( jsCfg: js.Dynamic ): Unit = {
+  private def simpleSetupDatGUI( jsCfg: js.Dynamic ): Unit = {
+    datGUI
+      .addList( jsCfg, "Shader", ShadersPack.values.map( _.name).toJSArray )
+      .onFinishChange { string: String =>
+        val shader = ShadersPack( string )
+        scene.setShader( shader )
 
-    import js.JSConverters._
+        val upToDateConfig = Config.loadShader( shader, config.`Background color`, string )
+        config.apply( upToDateConfig )
+        DatGUI.updateDisplay( datGUI )
+      }
+
+    datGUI.open()
+
+  }
+
+  private def setupDatGUI( jsCfg: js.Dynamic ): Unit = {
+
+    val commonFolder = datGUI.addFolder("...")
+    val borderFolder = datGUI.addFolder("Border")
+    val colorFolder = datGUI.addFolder("Color")
+    val colorModeFolder = datGUI.addFolder("Color mode")
+    val highlightingFolder = datGUI.addFolder("Effect")
+    val highlightingSubFolder = highlightingFolder.addFolder( "Effect params" )
 
     commonFolder
       .addList( jsCfg, "Shader", ShadersPack.values.map( _.name).toJSArray )
@@ -220,11 +232,15 @@ class ScramblMain(config: Config, maxHexagons:Int ) {
 
   @JSExport
   def loadModel(): Unit = {
-    setupDatGUI( config.asInstanceOf[js.Dynamic] )
+    if( devMode ) {
+      setupDatGUI( config.asInstanceOf[js.Dynamic] )
+    } else {
+      simpleSetupDatGUI( config.asInstanceOf[js.Dynamic] )
+    }
   }
 
   @JSExport
-  def jsonConfig(): String = s"<br><br><br>${config.jsonMe.replaceAll("\\n", "<br>")}"
+  def jsonConfig(): String = config.jsonMe
 
   @JSExport
   def loadJsonConfig(jsonConfig: String): Unit = {

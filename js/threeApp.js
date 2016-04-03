@@ -54,9 +54,11 @@ function appMain() {
     function showSaveDialog() {
         $( "#configText" ).remove();
         $( "#configLoader" ).remove();
-        $( "#dialog" ).append( "<div id='configText'>" + scramblMain.jsonConfig() + "</div>" );
+        $( "#dialog" ).append( "<div id='configText'>" +
+            "<textarea id='configArea' rows='30' style='width: 100%'>" + scramblMain.jsonConfig() + "</textarea>" +
+            "</div>" );
         $( "#dialog" ).dialog( "open" );
-        selectText("configText");
+        selectText("configArea");
     }
     $("#save").unbind("click");
     $("#save").click(showSaveDialog);
