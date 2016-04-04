@@ -53,7 +53,7 @@ object Config {
   val styles = Seq[String]( sinus, simplex2d, simplex3d )
 
   val defaultBackgroundColor: String = JsColors.colorIntToJsString( Colors.BLACK )
-  val defaultName: String = "LimeGradient2"
+  val defaultName: String = "Funky trip"
 
   private def noiseFactorFromConfigNoiseFactor(coeff: Int): Float = math.signum(coeff) match {
     case -1 =>
