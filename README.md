@@ -1,6 +1,8 @@
 Visual exploration of noise through hexagons and shaders
 =
 
+![Screenshot](screenshot.png?raw=true "screenshot")
+
 Demo: http://www.jollycyb.org/hexanoise/
 
 Live shader edition mode: http://www.jollycyb.org/hexanoise/?devmode
@@ -26,3 +28,8 @@ Techs
 -
 
 scala.js, three.js
+
+Misc
+-
+
+It's spin off project from https://github.com/makemeunsee/scrambl
