@@ -55,14 +55,6 @@ object Config {
   val defaultBackgroundColor: String = JsColors.colorIntToJsString( Colors.BLACK )
   val defaultName: String = "LimeGradient2"
 
-  private def noiseScaleFromConfigScale(coeff: Int): Float = {
-    math.pow(2, coeff).toFloat / 100f
-  }
-
-  private def configScaleFromNoiseScale(coeff: Float): Int = {
-    ( math.log(coeff * 100) / math.log(2) ).toInt
-  }
-
   private def noiseFactorFromConfigNoiseFactor(coeff: Int): Float = math.signum(coeff) match {
     case -1 =>
       - math.pow( 4.5, ( -coeff - 2.5 ).toFloat / 4f ).toFloat / 10f
@@ -70,15 +62,6 @@ object Config {
       0
     case 1 =>
       math.pow( 4.5, ( coeff - 2.5 ).toFloat / 4f ).toFloat / 10f
-  }
-
-  private def configNoiseFactorFromNoiseFactor(coeff: Float): Int = math.signum(coeff) match {
-    case -1 =>
-      - (4 * (math.log(10 * -coeff) / math.log(4.5)) + 2.5).toInt
-    case 0 =>
-      0
-    case 1 =>
-      (4 * (math.log(10 * coeff) / math.log(4.5)) + 2.5).toInt
   }
 
   def updateConfigWithJson( config: Config, json: js.Dynamic ): Unit = {
@@ -114,7 +97,7 @@ object Config {
   }
 }
 
-import Config.{noiseFactorFromConfigNoiseFactor, noiseScaleFromConfigScale}
+import Config.noiseFactorFromConfigNoiseFactor
 
 @JSExport
 case class Config (
@@ -191,8 +174,8 @@ case class Config (
 
   private def toDynamicColor = DynamicColor(
       SimpleColor(JsColors.jsStringToRgbaColor( `Color`, `Alpha` )),
-      noiseScaleFromConfigScale(`Scale x`),
-      noiseScaleFromConfigScale(`Scale y`),
+      1f / `Scale x`,
+      1f / `Scale y`,
       ( noiseFactorFromConfigNoiseFactor( `Noise R` ), noiseFactorFromConfigNoiseFactor( `Noise G` ), noiseFactorFromConfigNoiseFactor( `Noise B` ) )
     )
 
@@ -205,7 +188,7 @@ case class Config (
 
   private def toColorMode = `Color mode` match {
     case Config.colorMode3d =>
-      Color3D(`Color rate`.toFloat / 20f)
+      Color3D(`Color rate`.toFloat / 10f)
     case _ =>
       NoFX
   }

@@ -160,11 +160,11 @@ class ScramblMain( configs: js.Dynamic, maxHexagons:Int, devMode: Boolean ) {
       .onChange { shaderUpdateFunction }
 
     colorFolder
-      .addRange( jsCfg, "Scale x", 0, 7f, 1 )
+      .addRange( jsCfg, "Scale x", 1, 100f, 1 )
       .onChange { shaderUpdateFunction }
 
     colorFolder
-      .addRange( jsCfg, "Scale y", 0, 7, 1 )
+      .addRange( jsCfg, "Scale y", 1, 100f, 1 )
       .onChange { shaderUpdateFunction }
 
     colorFolder
@@ -186,7 +186,7 @@ class ScramblMain( configs: js.Dynamic, maxHexagons:Int, devMode: Boolean ) {
       .onChange { shaderUpdateFunction }
 
     colorModeFolder
-      .addRange( jsCfg, "Color rate", 1, 30, 1 )
+      .addRange( jsCfg, "Color rate", 0.0f, 20f, 0.5f )
       .onChange { shaderUpdateFunction }
 
     highlightingFolder
@@ -198,11 +198,11 @@ class ScramblMain( configs: js.Dynamic, maxHexagons:Int, devMode: Boolean ) {
       .onChange( shaderUpdateFunction )
 
     highlightingSubFolder
-      .addRange( jsCfg, "Hscale X", 1, 50f, 1 )
+      .addRange( jsCfg, "Hscale X", 1, 100f, 1 )
       .onChange( shaderUpdateFunction )
 
     highlightingSubFolder
-      .addRange( jsCfg, "Hscale Y", 1, 50f, 1 )
+      .addRange( jsCfg, "Hscale Y", 1, 100f, 1 )
       .onChange( shaderUpdateFunction )
 
     highlightingSubFolder
