@@ -1,6 +1,7 @@
 function appMain() {
 
     var scramblMain = demo.webapp.ScramblMain().init();
+    scramblMain.loadModel();
 
     function selectText(element) {
         var doc = document
@@ -279,7 +280,6 @@ function appMain() {
         requestAnimationFrame(main);
     };
 
-    scramblMain.loadModel();
     toggleUI(true);
     main();
 }

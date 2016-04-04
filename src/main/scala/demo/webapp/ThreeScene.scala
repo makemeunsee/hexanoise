@@ -89,8 +89,6 @@ class ThreeScene( config: Config, maxWidth: Int, maxHeight: Int, maxHexagons: In
   val renderer = new WebGLRenderer( ReadableWebGLRendererParameters )
   ( setBackgroundColor _ ).tupled( demo.JsColors.jsStringToFloats( config.`Background color` ) )
 
-  private var shaderModule: ShaderModule[LivingHexagon] = ShadersPack( config.`Shader` )
-
   private val backgrounds: Seq[Mesh] = computeHexablocks( spanHorizontal, spanVertical ) map createBackground
 
   private def updateBounds( x0: Float, y0: Float, x1: Float, y1: Float ): Unit = {
@@ -106,7 +104,6 @@ class ThreeScene( config: Config, maxWidth: Int, maxHeight: Int, maxHexagons: In
 
   private def createBackground( hexablock: HexaBlock ): Mesh = {
     val mesh = ShaderModule.makeMesh( hexablock.hexagons( gridModel ) )
-    shaderModule.update( mesh )
     scene.add( mesh )
     mesh
   }
@@ -169,7 +166,6 @@ class ThreeScene( config: Config, maxWidth: Int, maxHeight: Int, maxHexagons: In
     println("border", shaderModule.border)
     println("blendingRate", shaderModule.blendingRate)
     println("cubic", shaderModule.cubic)
-    this.shaderModule = shaderModule
     backgrounds foreach shaderModule.update
     cameraChanged()
   }

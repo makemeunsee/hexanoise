@@ -7,7 +7,8 @@ import world2d.LivingHexagon
 
 import scala.annotation.meta.field
 import scala.language.implicitConversions
-import scala.scalajs.js.{Dynamic, JSON}
+import scala.scalajs.js
+import scala.scalajs.js.JSON
 import scala.scalajs.js.annotation.JSExport
 
 /**
@@ -44,7 +45,7 @@ object Config {
   val noHighlighting = "None"
   val blending = "Blending"
   val pulsating = "Pulsating"
-  val higlightings = Seq( pulsating, blending, noHighlighting )
+  val highlightings = Seq( pulsating, blending, noHighlighting )
 
   val sinus = "Sinus"
   val simplex2d = "Simplex2d"
@@ -52,81 +53,7 @@ object Config {
   val styles = Seq[String]( sinus, simplex2d, simplex3d )
 
   val defaultBackgroundColor: String = JsColors.colorIntToJsString( Colors.BLACK )
-  val defaultShaderName: String = ShadersPack.LimeGradient2.name
-
-  def loadShader(module: ShaderModule[_], bgColor: String, name: String ): Config = {
-    val baseConfig = Config().copy(
-      `Cubic` = module.cubic,
-      `Shader` = name,
-      `Background color`= bgColor,
-      `Shade center` = module.centerShading
-    )
-
-    val richConfig0 = module.border match {
-      case Border(color, thickness) =>
-        baseConfig.copy(
-          `Border size` = thickness,
-          `Border color` = JsColors.colorIntToJsString( color.rgbInt ),
-          `Border alpha` = color.a
-        )
-      case NoFX =>
-        baseConfig.copy(
-          `Border size` = 0f,
-          `Border color` = JsColors.colorIntToJsString( Colors.BLACK ),
-          `Border alpha` = 0f
-        )
-    }
-
-    def applyStyle( alphaFunction: AlphaFunction, config: Config ): Config = alphaFunction match {
-      case Sinus( rate, amplitude, shift ) =>
-        config.copy( `Style` = Config.sinus,
-          `Rate` = rate * 10f,
-          `Amplitude` = amplitude,
-          `Shift` = -shift )
-      case SimplexNoise2D( xScale, yScale, rate, amplitude, shift ) =>
-        config.copy( `Style` = Config.simplex2d,
-          `Hscale X` = ( 1f / xScale ).toInt,
-          `Hscale Y` = ( 1f / yScale ).toInt,
-          `Rate` = rate * 10f,
-          `Amplitude` = amplitude,
-          `Shift` = -shift )
-      case SimplexNoise3D( xScale, yScale, rate, amplitude, shift ) =>
-        config.copy(  `Style` = Config.simplex3d,
-          `Hscale X` = ( 1f / xScale ).toInt,
-          `Hscale Y` = ( 1f / yScale ).toInt,
-          `Rate` = rate * 10f,
-          `Amplitude` = amplitude,
-          `Shift` = -shift )
-    }
-
-    val richConfig1 = module.highlighting match {
-      case Pulsating(alphaFunction) =>
-        applyStyle( alphaFunction, richConfig0.copy( `Highlighting` = pulsating ) )
-      case Blending(alphaFunction) =>
-        applyStyle( alphaFunction, richConfig0.copy( `Highlighting` = blending ) )
-      case NoFX =>
-        richConfig0.copy( `Highlighting` = noHighlighting )
-    }
-
-    val richConfig2 = module.colorShading match {
-      case NoFX =>
-        richConfig1.copy(`Color mode` = Config.noColorMode, `Color rate` = 0)
-      case Color3D(rate) =>
-        richConfig1.copy(`Color mode` = Config.colorMode3d, `Color rate` = (rate * 20).toInt)
-    }
-
-    val richConfig3 = richConfig2.copy(
-      `Color` = JsColors.colorIntToJsString( module.color.baseColor.rgbInt ),
-      `Alpha` = module.color.baseColor.a,
-      `Scale x` = configScaleFromNoiseScale( module.color.noiseScalingX),
-      `Scale y` = configScaleFromNoiseScale( module.color.noiseScalingY),
-      `Noise R` = configNoiseFactorFromNoiseFactor( module.color.noiseCoeffs._1 ),
-      `Noise G` = configNoiseFactorFromNoiseFactor( module.color.noiseCoeffs._2 ),
-      `Noise B` = configNoiseFactorFromNoiseFactor( module.color.noiseCoeffs._3 )
-    )
-
-    richConfig3
-  }
+  val defaultName: String = "LimeGradient2"
 
   private def noiseScaleFromConfigScale(coeff: Int): Float = {
     math.pow(2, coeff).toFloat / 100f
@@ -152,6 +79,38 @@ object Config {
       0
     case 1 =>
       (4 * (math.log(10 * coeff) / math.log(4.5)) + 2.5).toInt
+  }
+
+  def updateConfigWithJson( config: Config, json: js.Dynamic ): Unit = {
+    config.`Background color` = json.selectDynamic("Background color").asInstanceOf[String]
+    config.`Border size` = json.selectDynamic("Border size").asInstanceOf[Float]
+    config.`Border color` = json.selectDynamic("Border color").asInstanceOf[String]
+    config.`Border alpha` = json.selectDynamic("Border alpha").asInstanceOf[Float]
+    config.`Color` = json.selectDynamic("Color").asInstanceOf[String]
+    config.`Alpha` = json.selectDynamic("Alpha").asInstanceOf[Float]
+    config.`Scale x` = json.selectDynamic("Scale x").asInstanceOf[Int]
+    config.`Scale y` = json.selectDynamic("Scale y").asInstanceOf[Int]
+    config.`Noise R` = json.selectDynamic("Noise R").asInstanceOf[Int]
+    config.`Noise G` = json.selectDynamic("Noise G").asInstanceOf[Int]
+    config.`Noise B` = json.selectDynamic("Noise B").asInstanceOf[Int]
+    config.`Highlighting` = json.selectDynamic("Highlighting").asInstanceOf[String]
+    config.`Style` = json.selectDynamic("Style").asInstanceOf[String]
+    config.`Hscale X` = json.selectDynamic("Hscale X").asInstanceOf[Int]
+    config.`Hscale Y` = json.selectDynamic("Hscale Y").asInstanceOf[Int]
+    config.`Rate` = json.selectDynamic("Rate").asInstanceOf[Float]
+    config.`Amplitude` = json.selectDynamic("Amplitude").asInstanceOf[Float]
+    config.`Shift` = json.selectDynamic("Shift").asInstanceOf[Float]
+    config.`Cubic` = json.selectDynamic("Cubic").asInstanceOf[Boolean]
+    config.`Shade center` = json.selectDynamic("Shade center").asInstanceOf[Boolean]
+    config.`Name` = json.selectDynamic("Name").asInstanceOf[String]
+    config.`Color mode` = json.selectDynamic("Color mode").asInstanceOf[String]
+    config.`Color rate` = json.selectDynamic("Color rate").asInstanceOf[Float]
+  }
+
+  def fromJson( json: js.Dynamic ): Config = {
+    val config = Config()
+    updateConfigWithJson( config, json )
+    config
   }
 }
 
@@ -179,10 +138,10 @@ case class Config (
   var `Alpha`: Float = 1.0f,
 
   @(JSExport @field)
-  var `Scale x`: Int = 0,
+  var `Scale x`: Int = 1,
 
   @(JSExport @field)
-  var `Scale y`: Int = 0,
+  var `Scale y`: Int = 1,
 
   @(JSExport @field)
   var `Noise R`: Int = 0,
@@ -200,19 +159,19 @@ case class Config (
   var `Style`: String = Config.sinus,
 
   @(JSExport @field)
-  var `Hscale X`: Int = 0,
+  var `Hscale X`: Int = 1,
 
   @(JSExport @field)
-  var `Hscale Y`: Int = 0,
+  var `Hscale Y`: Int = 1,
 
   @(JSExport @field)
-  var `Rate`: Float = 0,
+  var `Rate`: Float = 1,
 
   @(JSExport @field)
-  var `Amplitude`: Float = 0,
+  var `Amplitude`: Float = 0.5f,
 
   @(JSExport @field)
-  var `Shift`: Float = 0,
+  var `Shift`: Float = 0.5f,
 
   @(JSExport @field)
   var `Cubic`: Boolean = false,
@@ -221,13 +180,13 @@ case class Config (
   var `Color mode`: String = Config.noColorMode,
 
   @(JSExport @field)
-  var `Color rate`: Float = 0f,
+  var `Color rate`: Float = 1f,
 
   @(JSExport @field)
   var `Shade center`: Boolean = true,
 
   @(JSExport @field)
-  var `Shader`: String = Config.defaultShaderName
+  var `Name`: String = Config.defaultName
 ) {
 
   private def toDynamicColor = DynamicColor(
@@ -280,7 +239,7 @@ case class Config (
   }
 
   def toShader: ShaderModule[LivingHexagon] = BackgroundShader(
-    "custom",
+    `Name`,
     toDynamicColor,
     border = toBorder,
     cubic = `Cubic`,
@@ -289,33 +248,8 @@ case class Config (
     highlighting = toHighlighting
   )
 
-  def apply( otherConfig: Config ): Unit = {
-    `Background color` = otherConfig.`Background color`
-    `Border size` = otherConfig.`Border size`
-    `Border color` = otherConfig.`Border color`
-    `Border alpha` = otherConfig.`Border alpha`
-    `Color` = otherConfig.`Color`
-    `Alpha` = otherConfig.`Alpha`
-    `Scale x` = otherConfig.`Scale x`
-    `Scale y` = otherConfig.`Scale y`
-    `Noise R` = otherConfig.`Noise R`
-    `Noise G` = otherConfig.`Noise G`
-    `Noise B` = otherConfig.`Noise B`
-    `Highlighting` = otherConfig.`Highlighting`
-    `Style` = otherConfig.`Style`
-    `Hscale X` = otherConfig.`Hscale X`
-    `Hscale Y` = otherConfig.`Hscale Y`
-    `Rate` = otherConfig.`Rate`
-    `Amplitude` = otherConfig.`Amplitude`
-    `Shift` = otherConfig.`Shift`
-    `Cubic` = otherConfig.`Cubic`
-    `Shade center` = otherConfig.`Shade center`
-    `Shader` = otherConfig.`Shader`
-    `Color mode` = otherConfig.`Color mode`
-    `Color rate` = otherConfig.`Color rate`
-  }
-
   def jsonMe: String = s"""{
+  "Name": "${`Name`}",
   "Background color": "${`Background color`}",
   "Border size": ${`Border size`},
   "Border color": "${`Border color`}",
@@ -336,36 +270,8 @@ case class Config (
   "Shift": ${`Shift`},
   "Cubic": ${`Cubic`},
   "Shade center": ${`Shade center`},
-  "Shader": "${`Shader`}",
   "Color mode": "${`Color mode`}",
   "Color rate": ${`Color rate`}
 }"""
-
-  def applyJson(json: String): Unit = {
-    val obj = JSON.parse(json)
-    `Background color` = obj.selectDynamic("Background color").asInstanceOf[String]
-    `Border size` = obj.selectDynamic("Border size").asInstanceOf[Float]
-    `Border color` = obj.selectDynamic("Border color").asInstanceOf[String]
-    `Border alpha` = obj.selectDynamic("Border alpha").asInstanceOf[Float]
-    `Color` = obj.selectDynamic("Color").asInstanceOf[String]
-    `Alpha` = obj.selectDynamic("Alpha").asInstanceOf[Float]
-    `Scale x` = obj.selectDynamic("Scale x").asInstanceOf[Int]
-    `Scale y` = obj.selectDynamic("Scale y").asInstanceOf[Int]
-    `Noise R` = obj.selectDynamic("Noise R").asInstanceOf[Int]
-    `Noise G` = obj.selectDynamic("Noise G").asInstanceOf[Int]
-    `Noise B` = obj.selectDynamic("Noise B").asInstanceOf[Int]
-    `Highlighting` = obj.selectDynamic("Highlighting").asInstanceOf[String]
-    `Style` = obj.selectDynamic("Style").asInstanceOf[String]
-    `Hscale X` = obj.selectDynamic("Hscale X").asInstanceOf[Int]
-    `Hscale Y` = obj.selectDynamic("Hscale Y").asInstanceOf[Int]
-    `Rate` = obj.selectDynamic("Rate").asInstanceOf[Float]
-    `Amplitude` = obj.selectDynamic("Amplitude").asInstanceOf[Float]
-    `Shift` = obj.selectDynamic("Shift").asInstanceOf[Float]
-    `Cubic` = obj.selectDynamic("Cubic").asInstanceOf[Boolean]
-    `Shade center` = obj.selectDynamic("Shade center").asInstanceOf[Boolean]
-    `Shader` = obj.selectDynamic("Shader").asInstanceOf[String]
-    `Color mode` = obj.selectDynamic("Color mode").asInstanceOf[String]
-    `Color rate` = obj.selectDynamic("Color rate").asInstanceOf[Float]
-  }
 
 }

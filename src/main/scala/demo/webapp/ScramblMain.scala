@@ -6,9 +6,8 @@ package demo.webapp
 
 import org.scalajs.dom
 import org.scalajs.dom.screen
-import datgui.{DatController, DatGUI}
+import datgui.DatGUI
 import demo.JsColors
-import rendering.shaders.ShadersPack
 
 import scala.scalajs.js
 import scala.scalajs.js.annotation.{JSName, JSExport}
@@ -25,7 +24,7 @@ object ScramblMain extends JSApp {
 
   def main(): Unit = {}
 
-  private val DEFAULT_MAX_HEXAGONS = 65536
+  private val DEFAULT_MAX_HEXAGONS = 0xffff
 
   @JSExport
   def init(): ScramblMain = {
@@ -36,10 +35,10 @@ object ScramblMain extends JSApp {
       .map(array => (array(0), array(1)))
       .toMap
 
-    val defaultConfig = Config.loadShader( ShadersPack( Config.defaultShaderName ), Config.defaultBackgroundColor, Config.defaultShaderName )
+    val configs = JSON.parse( Configs.examples )
 
     val maxHexagons = args
-      .get("maxhexas")
+      .get( "maxhexas" )
       .flatMap( str => Try{ Integer.parseInt( str ) }.toOption )
       .getOrElse(DEFAULT_MAX_HEXAGONS)
 
@@ -47,15 +46,18 @@ object ScramblMain extends JSApp {
       .get( "devmode" )
       .exists( _ => true )
 
-    new ScramblMain(defaultConfig, maxHexagons, devMode)
+    new ScramblMain( configs, maxHexagons, devMode )
   }
 }
 
-class ScramblMain(config: Config, maxHexagons:Int, devMode: Boolean ) {
+class ScramblMain( configs: js.Dynamic, maxHexagons:Int, devMode: Boolean ) {
 
   import js.JSConverters._
 
   private val datGUI = new DatGUI( js.Dynamic.literal( "load" -> JSON.parse( Config.presets ), "preset" -> "Default" ) )
+
+  private val config = Config.fromJson( configs.selectDynamic( Config.defaultName ) )
+  private val configNames = js.Object.getOwnPropertyNames( configs.asInstanceOf[js.Object] )
 
   // ******************** actual three.js scene ********************
 
@@ -65,22 +67,20 @@ class ScramblMain(config: Config, maxHexagons:Int, devMode: Boolean ) {
     screen.height.toInt,
     maxHexagons )
 
+  scene.setShader( config.toShader )
+
   // ******************** init code ********************
 
   private def simpleSetupDatGUI( jsCfg: js.Dynamic ): Unit = {
     datGUI
-      .addList( jsCfg, "Shader", ShadersPack.values.map( _.name).toJSArray )
+      .addList( jsCfg, "Name", configNames )
       .onFinishChange { string: String =>
-        val shader = ShadersPack( string )
-        scene.setShader( shader )
-
-        val upToDateConfig = Config.loadShader( shader, config.`Background color`, string )
-        config.apply( upToDateConfig )
+        Config.updateConfigWithJson( config, configs.selectDynamic( string ) )
+        scene.setShader( config.toShader )
         DatGUI.updateDisplay( datGUI )
       }
 
     datGUI.open()
-
   }
 
   private def setupDatGUI( jsCfg: js.Dynamic ): Unit = {
@@ -93,13 +93,10 @@ class ScramblMain(config: Config, maxHexagons:Int, devMode: Boolean ) {
     val highlightingSubFolder = highlightingFolder.addFolder( "Effect params" )
 
     commonFolder
-      .addList( jsCfg, "Shader", ShadersPack.values.map( _.name).toJSArray )
+      .addList( jsCfg, "Name", configNames )
       .onFinishChange { string: String =>
-        val shader = ShadersPack( string )
-        scene.setShader( shader )
-
-        val upToDateConfig = Config.loadShader( shader, config.`Background color`, string )
-        config.apply( upToDateConfig )
+        Config.updateConfigWithJson( config, configs.selectDynamic( string ) )
+        scene.setShader( config.toShader )
         DatGUI.updateDisplay( datGUI )
 
         if( config.`Border size` == 0 ) {
@@ -139,7 +136,7 @@ class ScramblMain(config: Config, maxHexagons:Int, devMode: Boolean ) {
     commonFolder.open()
 
     borderFolder
-      .addRange( jsCfg, "Border size", 0.0f, 3.5f ).step( 0.1f )
+      .addRange( jsCfg, "Border size", 0.0f, 3.5f, 0.1f )
       .onChange { shaderUpdateFunction }
 
     borderFolder
@@ -147,7 +144,7 @@ class ScramblMain(config: Config, maxHexagons:Int, devMode: Boolean ) {
       .onChange { shaderUpdateFunction }
 
     borderFolder
-      .addRange( jsCfg, "Border alpha", 0.0f, 1f ).step( 0.05f )
+      .addRange( jsCfg, "Border alpha", 0.0f, 1f, 0.05f )
       .onChange { shaderUpdateFunction }
 
     if( config.`Border size` > 0 ) {
@@ -159,27 +156,27 @@ class ScramblMain(config: Config, maxHexagons:Int, devMode: Boolean ) {
       .onChange { shaderUpdateFunction }
 
     colorFolder
-      .addRange( jsCfg, "Alpha", 0.0f, 1f ).step( 0.05f )
+      .addRange( jsCfg, "Alpha", 0.0f, 1f, 0.05f )
       .onChange { shaderUpdateFunction }
 
     colorFolder
-      .addRange( jsCfg, "Scale x", 0, 7f ).step( 1 )
+      .addRange( jsCfg, "Scale x", 0, 7f, 1 )
       .onChange { shaderUpdateFunction }
 
     colorFolder
-      .addRange( jsCfg, "Scale y", 0, 7 ).step( 1 )
+      .addRange( jsCfg, "Scale y", 0, 7, 1 )
       .onChange { shaderUpdateFunction }
 
     colorFolder
-      .addRange( jsCfg, "Noise R", -20, 20 ).step( 1 )
+      .addRange( jsCfg, "Noise R", -20, 20, 1 )
       .onChange { shaderUpdateFunction }
 
     colorFolder
-      .addRange( jsCfg, "Noise G", -20, 20 ).step( 1 )
+      .addRange( jsCfg, "Noise G", -20, 20, 1 )
       .onChange { shaderUpdateFunction }
 
     colorFolder
-      .addRange( jsCfg, "Noise B", -20, 20 ).step( 1 )
+      .addRange( jsCfg, "Noise B", -20, 20, 1 )
       .onChange { shaderUpdateFunction }
 
     colorFolder.open()
@@ -189,11 +186,11 @@ class ScramblMain(config: Config, maxHexagons:Int, devMode: Boolean ) {
       .onChange { shaderUpdateFunction }
 
     colorModeFolder
-      .addRange( jsCfg, "Color rate", 1, 30 ).step( 1 )
+      .addRange( jsCfg, "Color rate", 1, 30, 1 )
       .onChange { shaderUpdateFunction }
 
     highlightingFolder
-      .addList( jsCfg, "Highlighting", Config.higlightings.toJSArray )
+      .addList( jsCfg, "Highlighting", Config.highlightings.toJSArray )
       .onChange( shaderUpdateFunction )
 
     highlightingSubFolder
@@ -201,23 +198,23 @@ class ScramblMain(config: Config, maxHexagons:Int, devMode: Boolean ) {
       .onChange( shaderUpdateFunction )
 
     highlightingSubFolder
-      .addRange( jsCfg, "Hscale X", 1, 50f ).step( 1 )
+      .addRange( jsCfg, "Hscale X", 1, 50f, 1 )
       .onChange( shaderUpdateFunction )
 
     highlightingSubFolder
-      .addRange( jsCfg, "Hscale Y", 1, 50f ).step( 1 )
+      .addRange( jsCfg, "Hscale Y", 1, 50f, 1 )
       .onChange( shaderUpdateFunction )
 
     highlightingSubFolder
-      .addRange( jsCfg, "Rate", 0.0f, 20f ).step( 0.5f )
+      .addRange( jsCfg, "Rate", 0.0f, 20f, 0.5f )
       .onChange { shaderUpdateFunction }
 
     highlightingSubFolder
-      .addRange( jsCfg, "Amplitude", -2f, 2f ).step( 0.1f )
+      .addRange( jsCfg, "Amplitude", -2f, 2f, 0.1f )
       .onChange { shaderUpdateFunction }
 
     highlightingSubFolder
-      .addRange( jsCfg, "Shift", -2f, 2f ).step( 0.1f )
+      .addRange( jsCfg, "Shift", -2f, 2f, 0.1f )
       .onChange { shaderUpdateFunction }
 
     highlightingFolder.open()
@@ -243,8 +240,8 @@ class ScramblMain(config: Config, maxHexagons:Int, devMode: Boolean ) {
   def jsonConfig(): String = config.jsonMe
 
   @JSExport
-  def loadJsonConfig(jsonConfig: String): Unit = {
-    config.applyJson(jsonConfig)
+  def loadJsonConfig( jsonConfig: String ): Unit = {
+    Config.updateConfigWithJson( config, JSON.parse( jsonConfig ) )
     scene.setShader( config.toShader )
     DatGUI.updateDisplay( datGUI )
   }
